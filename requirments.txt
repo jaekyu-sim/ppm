@@ -5,3 +5,8 @@ langchain_ollama
 langchain_text_splitters
 langchain_chroma
 langgraph
+fastapi
+uvicorn[standard]
+aiohttp
+pydantic
+python-multipart

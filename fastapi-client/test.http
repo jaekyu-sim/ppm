@@ -1,0 +1,8 @@
+### FastAPI 서버 기본 테스트
+GET http://localhost:8000/
+
+### Health Check
+GET http://localhost:8000/health
+
+### Github Webhook
+### https://smee.io/JsEoOmxPUGyv3cl 에 들어가서 Redeliver this payload
