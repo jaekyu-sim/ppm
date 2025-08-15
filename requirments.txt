@@ -10,3 +10,5 @@ uvicorn[standard]
 aiohttp
 pydantic
 python-multipart
+mcp
+pysmee
