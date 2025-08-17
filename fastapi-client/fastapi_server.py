@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Request
 import uvicorn
 from contextlib import asynccontextmanager
- 
+
 from mcp_client import MCPClient
 from smee_client import SmeeClientManager
+
 
 mcp_client_instance: MCPClient = None
 smee_client_manager: SmeeClientManager = None
@@ -25,11 +26,12 @@ async def lifespan(app: FastAPI):
         await smee_client_manager.start()
     except Exception as e:
         print(f"Smee 클라이언트 시작 실패: {e}")
-
-    mcp_client_instance = MCPClient()
+    print("Smee 클라이언트 시작.")
 
     # MCP 서버 연결
     print("MCP 서버에 연결 시도...")
+
+    mcp_client_instance = MCPClient()
 
     try:
         await mcp_client_instance.connect_to_server("fastmcp-server/mcp_server.py")
@@ -37,8 +39,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"MCP 서버 연결 실패: {e}")
 
-    yield
+    print("FastAPI 시작.")
+
     # FastAPI 종료 시 MCP 클라이언트 리소스 정리
+    yield
     print("FastAPI 종료 중, MCP 클라이언트 정리...")
     await mcp_client_instance.cleanup()
     if smee_client_manager:
@@ -66,11 +70,23 @@ async def get_mcp_tools():
 @app.post("/webhook")
 async def github_webhook(request: Request):
     data = await request.json()
-    # Process the webhook payload
-    # TODO: api_client.py 코드 옮기기
-    print("Received webhook:", data)
-    return {"status": "ok"}
+    
+    try:
+        repo_full_name = data['repository']['full_name']
+        commit_sha = data['head_commit']['id']
+        print(f"Webhook 수신: {repo_full_name}, Commit SHA: {commit_sha}")
 
+        query = f"GitHub 리포지토리 '{repo_full_name}'의 커밋 '{commit_sha}'에서 변경된 파일 목록과 각 파일의 전체 내용을 가져와줘."
+        result = await mcp_client_instance.process_query(query)
+
+        return {"status": "success", "result": result}
+    except KeyError as e:
+        print(f"Webhook payload에서 필요한 키를 찾을 수 없습니다: {e}")
+        return {"status": "error", "message": f"Missing key in webhook payload: {e}"}
+    except Exception as e:
+        print(f"Webhook 처리 중 오류 발생: {e}")
+        return {"status": "error", "message": str(e)}
+    
 
 if __name__ == "__main__":
     # Uvicorn을 사용하여 FastAPI 애플리케이션 실행

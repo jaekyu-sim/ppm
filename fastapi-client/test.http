@@ -6,3 +6,16 @@ GET http://localhost:8000/tools
 
 ### Github Webhook
 ### https://smee.io/JsEoOmxPUGyv3cl 에 들어가서 Redeliver this payload
+
+### Webhook 수신 테스트
+POST http://localhost:8000/webhook
+Content-Type: application/json
+
+{
+  "repository": {
+    "full_name": "sjKang01401/webhook-test"
+  },
+  "head_commit": {
+    "id": "66ba01b050bbc93d4d98b972ccdd7c1eaa282606"
+  }
+}
