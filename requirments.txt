@@ -11,5 +11,4 @@ aiohttp
 pydantic
 python-multipart
 mcp
-pysmee
 PyGithub
