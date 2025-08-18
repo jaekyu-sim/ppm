@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request
+import json
+from urllib.parse import parse_qs
+from fastapi import FastAPI, HTTPException, Request
 import uvicorn
 from contextlib import asynccontextmanager
 
@@ -20,7 +22,7 @@ async def lifespan(app: FastAPI):
     print("Smee 클라이언트 시작 중...")
 
     smee_url = "https://smee.io/JsEoOmxPUGyv3cl"
-    target_url = "http://localhost:8000/webhook"
+    target_url = "http://127.0.0.1:8000/webhook"
     smee_client_manager = SmeeClientManager(smee_url, target_url)
     try:
         await smee_client_manager.start()
@@ -91,3 +93,4 @@ async def github_webhook(request: Request):
 if __name__ == "__main__":
     # Uvicorn을 사용하여 FastAPI 애플리케이션 실행
    uvicorn.run(app, host="0.0.0.0", port=8000)
+   
