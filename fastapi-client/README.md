@@ -38,6 +38,9 @@ python fastapi-client/fastapi_server.py
 ## 5. API 테스트 (test.http 활용)
 <img width="1063" height="788" alt="Image" src="https://github.com/user-attachments/assets/5f3ca3c5-bba9-4540-8077-d8355a78fa3d" />
 
+### (2025.08.19) mcp-server tool 1개로 통합 결과
+- 결과 반환 21초 소요
+<img width="620" height="543" alt="Image" src="https://github.com/user-attachments/assets/26988288-6539-4b9b-87e7-ceb952e48014" />
 
 ---
 
