@@ -5,14 +5,20 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiohttp>=3.12.15",
     "fastapi>=0.116.1",
     "ipykernel>=6.30.0",
     "langchain>=0.3.27",
     "langchain-chroma>=0.2.5",
     "langchain-community>=0.3.27",
+    "langchain-core>=0.3.72",
     "langchain-ollama>=0.3.6",
     "langchain-text-splitters>=0.3.9",
     "langgraph>=0.6.2",
     "mcp[cli]>=1.12.3",
+    "pydantic>=2.11.7",
+    "pygithub>=2.7.0",
+    "python-multipart>=0.0.20",
     "starlette>=0.47.2",
+    "uvicorn[standard]>=0.35.0",
 ]
