@@ -6,11 +6,11 @@
 - **중분류**: 개발 테스트 기능
 - **소분류**:
   - 개발 테스트 기능 구현
-    - api 호출 시, "hello world" 를 반환하는 기능 구현.
+    - api 호출 시, "호출 됨", "1등하자" 문구를 출력하고, "hello world" 를 반환하는 기능 구현.
 
 - **요구사항명**: 개발 테스트 기능 구현
 - **설명**:  
-  사용자의 api 호출 요청 시, "hello world" 를 반환하는 기능 구현.
+  사용자의 api 호출 요청 시, 서버 내에 "호출 됨", "1등하자" 를 Print 하는 로직을 구현하고, "hello world" 를 반환하는 기능 구현.
 
 - **근거문서**:
   - RFP III‑3 “상세 요구사항” SFR‑003 :contentReference[oaicite:2]{index=2}&#8203;:contentReference[oaicite:3]{index=3}
