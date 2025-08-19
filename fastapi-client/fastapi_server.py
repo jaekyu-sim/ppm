@@ -79,9 +79,15 @@ async def github_webhook(request: Request):
         print(f"Webhook 수신: {repo_full_name}, Commit SHA: {commit_sha}")
 
         query = f"GitHub 리포지토리 '{repo_full_name}'의 커밋 '{commit_sha}'에서 변경된 파일 목록과 각 파일의 전체 내용을 가져와줘."
-        result = await mcp_client_instance.process_query(query)
+        commitResult = await mcp_client_instance.process_query(query) # TODO: process_query 함수 모듈화 or 함수명 변경
 
-        return {"status": "success", "result": result}
+        if not commitResult:
+            return {"status": "error", "message": "커밋 데이터 조회에 실패했습니다."}
+        
+        ## 이후 진행
+
+        return commitResult # TODO: 편의상 리턴한거고 확정아님
+    
     except KeyError as e:
         print(f"Webhook payload에서 필요한 키를 찾을 수 없습니다: {e}")
         return {"status": "error", "message": f"Missing key in webhook payload: {e}"}

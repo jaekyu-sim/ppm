@@ -48,25 +48,26 @@ class MCPClient:
             "input_schema": tool.inputSchema
         } for tool in tool_response.tools]
 
-        # tool_list = {x.name: x for x in self.tools}
         llm_with_tools = llm.bind_tools(available_tools)
 
         messages = [HumanMessage(content=query)]
         print('Query:', query)
 
         # Initial Call LLM
-        response = llm_with_tools.invoke(messages)
-        messages.append(response)
-        print(f'Response: {response}')
+        init_response = llm_with_tools.invoke(messages)
+        # print("Initial response:", init_response)
 
-        if response.tool_calls:
-            for tool_call in response.tool_calls:
-                print(f"Executing tool: {tool_call['name']} with args: {tool_call['args']}")
-                tool_response = await self.session.call_tool(tool_call['name'], tool_call['args'])
-                messages.append(tool_response)
-                print(f"Tool response: {tool_response}")
+        if init_response.tool_calls:
+            tool_call = init_response.tool_calls[-1]
+            print(f"Executing tool: {tool_call['name']} with args: {tool_call['args']}")
+            tool_response = await self.session.call_tool(tool_call['name'], tool_call['args'])
 
-
+        if not tool_response.isError:
+            print("Tool response:", tool_response.structuredContent)
+            return tool_response.structuredContent
+        else:
+            print("Error in tool response:", tool_response.content[-1].text)
+            return False
 
 
     async def cleanup(self):
