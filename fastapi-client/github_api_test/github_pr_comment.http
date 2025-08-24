@@ -1,0 +1,61 @@
+@github_token = # 개인 GitHub 토큰을 여기에 입력하세요
+@owner = sjKang01401
+@repo = webhook-test
+@pull_number = 1
+
+###
+# ----------------------------------------------------------------
+# GitHub API: PR의 일반 코멘트(Conversation) 목록 조회
+# ----------------------------------------------------------------
+# 'Conversation' 탭에 표시되는 일반적인 대화 형식의 코멘트 목록을 가져옵니다.
+# @see https://docs.github.com/en/rest/issues/comments#list-issue-comments
+
+GET https://api.github.com/repos/{{owner}}/{{repo}}/issues/{{pull_number}}/comments
+Accept: application/vnd.github+json
+Authorization: Bearer {{github_token}}
+
+###
+# ----------------------------------------------------------------
+# GitHub API: PR에 일반 코멘트(Conversation) 작성
+# ----------------------------------------------------------------
+# 'Conversation' 탭에 새로운 코멘트를 작성합니다.
+# @see https://docs.github.com/ko/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
+
+POST https://api.github.com/repos/{{owner}}/{{repo}}/issues/{{pull_number}}/comments
+Accept: application/vnd.github+json
+Authorization: Bearer {{github_token}}
+Content-Type: application/json
+
+{
+  "body": "### 리뷰 요청드립니다! :rocket:\n\n안녕하세요, @동료개발자 님. 해당 PR에 대한 리뷰를 부탁드립니다.\n\n**주요 변경 사항**\n- 로그인 로직을 개선했습니다.\n- 회원가입 시 유효성 검사를 추가했습니다.\n\n**참고 코드**\n```python\nclass LoginService {\n    // ...\n}\n```\n\n자세한 내용은 [관련 이슈](https://github.com)를 참고해주세요.\n\n감사합니다."
+}
+
+###
+# ----------------------------------------------------------------
+# GitHub API: PR의 리뷰 코멘트(Files Changed) 목록 조회
+# ----------------------------------------------------------------
+# 'Files Changed' 탭에서 코드의 특정 라인에 직접 작성된 코멘트 목록을 가져옵니다.
+# @see https://docs.github.com/en/rest/pulls/comments#list-review-comments-on-a-pull-request
+
+GET https://api.github.com/repos/{{owner}}/{{repo}}/pulls/{{pull_number}}/comments
+Accept: application/vnd.github+json
+Authorization: Bearer {{github_token}}
+
+###
+# ----------------------------------------------------------------
+# GitHub API: PR에 리뷰 코멘트(Files Changed) 작성
+# ----------------------------------------------------------------
+# 'Files Changed' 탭의 특정 코드 라인에 코멘트를 작성합니다.
+# @see https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28#create-a-review-comment-for-a-pull-request
+
+POST https://api.github.com/repos/{{owner}}/{{repo}}/pulls/{{pull_number}}/comments
+Accept: application/vnd.github+json
+Authorization: Bearer {{github_token}}
+Content-Type: application/json
+
+{
+  "body": "서버 내에 출력하고자 하면 System.out.println 대신 Logger를 사용하는 것이 좋습니다.",
+  "commit_id": "70b00669097277da476dd7da9266977fe00a3085",
+  "path": "main/service/LoginService.java",
+  "line": 11
+}
