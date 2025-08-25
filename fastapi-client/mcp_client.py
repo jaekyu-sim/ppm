@@ -59,14 +59,14 @@ class MCPClient:
 
         if init_response.tool_calls:
             tool_call = init_response.tool_calls[-1]
-            print(f"Executing tool: {tool_call['name']} with args: {tool_call['args']}")
+            # print(f"Executing tool: {tool_call['name']} with args: {tool_call['args']}")
             tool_response = await self.session.call_tool(tool_call['name'], tool_call['args'])
 
         if not tool_response.isError:
-            print("Tool response:", tool_response.structuredContent)
+            # print("Tool response:", tool_response.structuredContent)
             return tool_response.structuredContent
         else:
-            print("Error in tool response:", tool_response.content[-1].text)
+            # print("Error in tool response:", tool_response.content[-1].text)
             return False
 
 
