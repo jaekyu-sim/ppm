@@ -62,13 +62,16 @@ def extract_features(file_path: str, full_text: str) -> Dict:
             "is_repository": is_repo,
             "is_service": is_service
         },
-        "sampled": sample[:4000]  # 질의에 쓸 짧은 컨텍스트
+        "sampled": sample[:4000],  # 질의에 쓸 짧은 컨텍스트
+        #"full_text": full_text  # 규칙/LLM 요약에 사용
     }
 
 def build_query_from_features(feat: Dict) -> str:
     # 벡터 검색에 쓸 짧은 요약 질의(= diff 대체재)
     head = f"[FILE] {feat['file_path']}"
+    
     roles = []
+    
     for k, v in feat["hints"].items():
         if v: roles.append(k.replace("is_", ""))
 
@@ -76,6 +79,8 @@ def build_query_from_features(feat: Dict) -> str:
     # tables = ", ".join(feat["sql_tables"][:10]) if feat["sql_tables"] else ""
     defs   = ", ".join(feat["defs"][:10]) if feat["defs"] else ""
     confs  = ", ".join(feat["configs"][:10]) if feat["configs"] else ""
+    
+
 
     return (
         f"{head}\n"
@@ -84,5 +89,5 @@ def build_query_from_features(feat: Dict) -> str:
         # f"tables=[{tables}]\n"
         f"defs=[{defs}]\n"
         f"configs=[{confs}]\n\n"
-        f"SUMMARY_CONTEXT:\n{feat['sampled']}"
+        f"SUMMARY_CONTEXT:\n{feat['sampled']}"#======================>feat['sampled'] 가 너무 코드 전문이라 vectorDB 에서 유사도 검색을 못함. 코드를 자연어로 변경해서 넣어야 함.
     )
