@@ -128,7 +128,7 @@ def compare_to_rfp(state:AgentState):
 
     def judge_one_func(func_label, func_text, retriever, llm):
         # 1) 검색
-        docs = retriever.get_relevant_documents(func_text)
+        docs = retriever.invoke(func_text)
         req_block = build_requirements_block(docs)
 
         # 2) LLM 판정
