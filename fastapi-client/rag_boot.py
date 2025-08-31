@@ -2,21 +2,22 @@
 
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.embeddings import OllamaEmbeddings
+#from langchain.embeddings import OllamaEmbeddings #=> deprecated
+from langchain_community.embeddings import OllamaEmbeddings
 from langchain_chroma import Chroma
 #from langchain_community.llms import Ollama
 #from langchain_community.chat_models import ChatOllama
 from langchain_ollama import ChatOllama
-from langchain_core.tools import tool
-from langchain.agents import initialize_agent, AgentType
+#from langchain_core.tools import tool
+#from langchain.agents import initialize_agent, AgentType
 #from langchain_ollama import OllamaEmbeddings
 import os
-from langgraph.prebuilt import ToolNode
-from typing import Literal
+#from langgraph.prebuilt import ToolNode
+#from typing import Literal
 #from langgraph.graph import END
-from langgraph.graph import START, END
-from langgraph.graph import MessagesState, StateGraph
-from langchain_core.prompts import PromptTemplate
+#from langgraph.graph import START, END
+#from langgraph.graph import MessagesState, StateGraph
+#from langchain_core.prompts import PromptTemplate
 from pathlib import Path
 
 # model cell

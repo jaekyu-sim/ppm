@@ -56,11 +56,18 @@ code_interpreter_prompt = PromptTemplate.from_template(
 )
 
 def code_interpreter(state:AgentState):
+    def extract_output_block(s: str):
+        """<output>태그 '포함'한 블록 전체 반환"""
+        m = re.search(r"<output\b[^>]*>.*?</output>", s, flags=re.DOTALL | re.IGNORECASE)
+        return m.group(0) if m else None
     file_code = state['file_code']
     code_interpreter_result_chain = code_interpreter_prompt | llm | StrOutputParser()
     result = code_interpreter_result_chain.invoke({"information": file_code})
 
-    return {'answer': result}
+    # output 만 추려내기.
+    result_output = extract_output_block(result)
+
+    return {'answer': result_output}
 
 
 judge_schema = """
