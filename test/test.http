@@ -19,3 +19,16 @@ Content-Type: application/json
     "id": "66ba01b050bbc93d4d98b972ccdd7c1eaa282606"
   }
 }
+
+### SFR-099 테스트
+POST http://localhost:8000/webhook
+Content-Type: application/json
+
+{
+  "repository": {
+    "full_name": "HorangApple/sports-portal"
+  },
+  "head_commit": {
+    "id": "6f4b4f2a8b6c9992f8b81b4e27c7dde1711700fe"
+  }
+}

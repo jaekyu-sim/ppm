@@ -145,7 +145,7 @@ async def github_webhook(request: Request):
             print("FINAL RESULT : ", compare_result)
             
 
-        return commitResult # TODO: 편의상 리턴한거고 확정아님
+        return compare_result
     
     except KeyError as e:
         print(f"Webhook payload에서 필요한 키를 찾을 수 없습니다: {e}")
