@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict
 from urllib.parse import parse_qs
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from langchain_ollama import ChatOllama
 import uvicorn
 from contextlib import asynccontextmanager
@@ -24,6 +24,7 @@ from rag_boot import load_or_build_vector_store
 from graph.node import code_interpreter, compare_to_rfp
 from graph.build import create_code_compare_to_rfp_graph
 from graph.state import AgentState
+from result_processor import process_code_comparison_result
 
 
 mcp_client_instance: MCPClient = None
@@ -98,15 +99,30 @@ async def get_mcp_tools():
 @app.post("/webhook")
 async def github_webhook(request: Request):
     data = await request.json()
-    
+    event_type = request.headers.get('X-GitHub-Event')
+
+    repo_full_name = None
+    commit_sha = None
+
     try:
-        # 코드 변경 내역 불러오기.
-        repo_full_name = data['repository']['full_name']
-        commit_sha = data['head_commit']['id']
-        print(f"Webhook 수신: {repo_full_name}, Commit SHA: {commit_sha}")
+        if event_type == 'push':
+            print("Push 이벤트 수신")
+            repo_full_name = data['repository']['full_name']
+            commit_sha = data['head_commit']['id']
+
+        elif event_type == 'pull_request':
+            print("Pull Request 이벤트 수신")
+            repo_full_name = data['repository']['full_name']
+            commit_sha = data['pull_request']['head']['sha']
+        
+        else:
+            print(f"지원하지 않는 이벤트 타입입니다: {event_type}")
+            return {"status": "ignored", "message": f"Unsupported event type: {event_type}"}
+
+        print(f"Webhook 처리 시작: {repo_full_name}, Commit SHA: {commit_sha}")
 
         query = f"GitHub 리포지토리 '{repo_full_name}'의 커밋 '{commit_sha}'에서 변경된 파일 목록과 각 파일의 전체 내용을 가져와줘."
-        start = time.time() # LLM 호출 시간 측정 용.
+        start = time.time() # LLM 호출 시간 측정 용. 
         commitResult = await mcp_client_instance.process_query(query) # TODO: process_query 함수 모듈화 or 함수명 변경
 
         if not commitResult:
@@ -116,9 +132,8 @@ async def github_webhook(request: Request):
         
         # RAG 불러오기.
         files = commitResult['files']
-
+        all_answers = []
         
-
         for i in range(len(files)):
             file_path = files[i]['fileName']
             file_code = files[i]['code']
@@ -144,8 +159,19 @@ async def github_webhook(request: Request):
             print("==============================================================")
             print("FINAL RESULT : ", compare_result)
             
+            if compare_result and 'answer' in compare_result:
+                all_answers.extend(compare_result['answer'])
 
-        return compare_result
+        final_result = {'answer': all_answers}
+        
+        pr_comment_send = data.get('pr_comment_send', True)
+        pr_number = data['number']
+        ## 임시 코드 시작
+        repo_full_name = "sjKang01401/webhook-test"
+        ## 임시 코드 제거
+        result_markdown = await process_code_comparison_result(mcp_client_instance, final_result, repo_full_name, pr_comment_send, pr_number)
+
+        return Response(content=result_markdown, media_type="text/markdown")
     
     except KeyError as e:
         print(f"Webhook payload에서 필요한 키를 찾을 수 없습니다: {e}")
@@ -153,6 +179,7 @@ async def github_webhook(request: Request):
     except Exception as e:
         print(f"Webhook 처리 중 오류 발생: {e}")
         return {"status": "error", "message": str(e)}
+
     
 
 if __name__ == "__main__":

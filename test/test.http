@@ -10,6 +10,7 @@ GET http://localhost:8000/tools
 ### Webhook 수신 테스트
 POST http://localhost:8000/webhook
 Content-Type: application/json
+X-GitHub-Event: push
 
 {
   "repository": {
@@ -23,12 +24,31 @@ Content-Type: application/json
 ### SFR-099 테스트
 POST http://localhost:8000/webhook
 Content-Type: application/json
+X-GitHub-Event: push
 
 {
   "repository": {
     "full_name": "HorangApple/sports-portal"
   },
   "head_commit": {
-    "id": "6f4b4f2a8b6c9992f8b81b4e27c7dde1711700fe"
+    "id": "beff35bf72321a4e8cd9aaf4e4b068425ed4e798"
+  }
+}
+
+### Pull Request Payload
+POST http://localhost:8000/webhook
+Content-Type: application/json
+X-GitHub-Event: pull_request
+
+{
+  "pr_comment_send" : true,
+  "number": 2,
+  "pull_request": {
+    "head": {
+      "sha": "beff35bf72321a4e8cd9aaf4e4b068425ed4e798"
+    }
+  },
+  "repository": {
+    "full_name": "HorangApple/sports-portal"
   }
 }
