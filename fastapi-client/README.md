@@ -1,3 +1,20 @@
+## PR Workflow 테스트 방법
+> 테스트 전에 env 파일에 PPM-Bot 계정에 대한 Github Token 넣었는지 확인!
+1. Github 통해서 실제로 Pull Request 동작
+2. smee 통해서 이전에 수행했던 Pull Request를 Redelivery
+3. test.http 이용 : "Pull Request Payload" 케이스 'Send Request' 클릭
+    - pr_comment_send
+        - true : PR Comment 등록
+        - false : PR Comment 미등록 (Http Response로 확인 가능)
+        - 미설정 : PR Comment 등록 (1, 2번으로 동작 시 미설정이라 PR Comment 등록됨)
+    - number : PR 번호
+    - sha : 테스트 대상 단일 커밋 해시 아이디
+<img width="1288" height="752" alt="image" src="https://github.com/user-attachments/assets/2d02d128-40a8-4b08-b593-1df255441c82" />
+
+ <br/>
+ <br/>
+
+
 # FastAPI 서버
 - GitHub Webhook 이벤트를 수신하여 MCP 서버와 상호작용하는 브리지 역할
 - Smee.io를 통해 웹훅을 수신하고, 이를 처리하여 MCP 서버에 필요한 작업 요청

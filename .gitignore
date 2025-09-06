@@ -8,3 +8,5 @@ __pycache__/
 *.pyc
 
 .idea/*
+fastapi-client/chroma_db/chroma.sqlite3
+fastapi-client/chroma_db/5a3a8231-39c0-4838-880b-09cee343d5a3/length.bin
