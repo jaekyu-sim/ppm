@@ -166,9 +166,7 @@ async def github_webhook(request: Request):
         
         pr_comment_send = data.get('pr_comment_send', True)
         pr_number = data['number']
-        ## 임시 코드 시작
-        repo_full_name = "sjKang01401/webhook-test"
-        ## 임시 코드 제거
+
         result_markdown = await process_code_comparison_result(mcp_client_instance, final_result, repo_full_name, pr_comment_send, pr_number)
 
         return Response(content=result_markdown, media_type="text/markdown")
