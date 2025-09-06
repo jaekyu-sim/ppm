@@ -148,7 +148,7 @@ def compare_to_rfp(state:AgentState):
         data["requirements_candidates"] = [
             {
                 "id": d.metadata.get("id") or d.metadata.get("source"),
-                "score": getattr(d, "score", None),
+                #"score": getattr(d, "score", None),
                 "snippet": d.page_content[:300]
             } for d in docs
         ]
