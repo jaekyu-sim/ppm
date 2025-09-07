@@ -21,7 +21,7 @@ from rag_boot import load_or_build_vector_store
 #from req_check_graph import create_req_check_graph
 #import asyncio
 
-from graph.node import code_interpreter, compare_to_rfp
+from graph.node import build_dependency_blob, code_interpreter, collect_bfs1_dep_paths, compare_to_rfp, fetch_files_by_paths_via_mcp
 from graph.build import create_code_compare_to_rfp_graph
 from graph.state import AgentState
 from result_processor import process_code_comparison_result
@@ -145,14 +145,25 @@ async def github_webhook(request: Request):
             state = AgentState(file_code=files[i]['code'])
 
     
-            # # NODE 1 시작
-            # result = code_interpreter(state)
-            # result = result['answer']
+            # --- (추가) BFS depth=1: 의존 파일 경로 수집 ---
+            dep_paths = collect_bfs1_dep_paths(file_path, file_code)
+            print("dep_paths : ", dep_paths)
+            dep_files = []
+            if dep_paths:
+                try:
+                    dep_files = await fetch_files_by_paths_via_mcp(
+                        mcp_client_instance, repo_full_name, commit_sha, dep_paths
+                    )
+                    print("dep_files : ", dep_files)
+                except Exception as e:
+                    print(f"[WARN] dependency fetch 실패: {e}")
 
-            # # NODE 2 시작
-            # state = AgentState(answer=result)
-            # answ = compare_to_rfp(state)
-            # print("*** sss *** sss : ", answ)
+            dep_blob = build_dependency_blob(dep_files)
+            print("dep_blob : ", dep_blob)
+            # --- (핵심) 원본 코드 뒤에 DEPENDENCY CONTEXT를 붙여서 그래프에 전달 ---
+            combined_code = file_code
+            if dep_blob:
+                combined_code += "\n\n// ==== DEPENDENCY CONTEXT (BFS depth=1) ====\n" + dep_blob
 
             graph = create_code_compare_to_rfp_graph()
             compare_result = graph.invoke({'file_code': files[i]['code']})
@@ -166,7 +177,7 @@ async def github_webhook(request: Request):
         
         pr_comment_send = data.get('pr_comment_send', True)
         pr_number = data['number']
-
+        
         result_markdown = await process_code_comparison_result(mcp_client_instance, final_result, repo_full_name, pr_comment_send, pr_number)
 
         return Response(content=result_markdown, media_type="text/markdown")

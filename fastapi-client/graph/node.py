@@ -6,6 +6,180 @@ from rag_boot import load_or_build_vector_store
 from .state import AgentState
 import re
 
+## 추가1 START
+import os, re
+from pathlib import PurePosixPath
+
+# --- Java ---
+JAVA_IMPORT_RE  = re.compile(r'^\s*import\s+([a-zA-Z_][\w.]+)\s*;', re.M)
+JAVA_PACKAGE_RE = re.compile(r'^\s*package\s+([a-zA-Z_][\w.]+)\s*;', re.M)
+JAVA_CALL_RE    = re.compile(r'\b([A-Z][A-Za-z0-9_]*)\s*\.\s*[A-Za-z_][A-Za-z0-9_]*\s*\(')
+
+def _java_guess_paths(file_path:str, code:str, max_candidates:int=8) -> list[str]:
+    """
+    Java: import/FQN 기반으로 유틸 클래스 파일 경로 추정 (BFS depth=1)
+    - 표준패키지(java., javax.) 제외
+    - 실제로 코드에서 ClassName.method(...) 호출된 클래스만 대상
+    - FQN → 경로: com.acme.util.Hash → com/acme/util/Hash.java
+    """
+    imports = JAVA_IMPORT_RE.findall(code)
+    pkg     = JAVA_PACKAGE_RE.findall(code)
+    pkg     = pkg[0] if pkg else None
+
+    # 호출된 ClassName 목록
+    called_classes = {m for m in JAVA_CALL_RE.findall(code)}
+
+    # import들에서 ClassName → FQN 매핑
+    fqn_map = {}
+    for imp in imports:
+        if imp.startswith(("java.", "javax.")):
+            continue
+        parts = imp.split(".")
+        cls   = parts[-1]
+        fqn_map[cls] = imp
+
+    # 호출된 클래스들 중 FQN 결정 (없으면 같은 패키지로 가정)
+    fqns = []
+    for cls in sorted(called_classes):
+        if cls in fqn_map:
+            fqns.append(fqn_map[cls])
+        elif pkg:
+            fqns.append(f"{pkg}.{cls}")
+
+    # FQN → 파일 경로
+    paths = []
+    for fqn in fqns:
+        p = fqn.replace(".", "/") + ".java"
+        paths.append(p)
+
+    # 중복/개수 제한
+    dedup = []
+    for p in paths:
+        if p not in dedup:
+            dedup.append(p)
+        if len(dedup) >= max_candidates:
+            break
+    return dedup
+
+# --- TypeScript/JavaScript ---
+TS_IMPORT_STAR   = re.compile(r'^\s*import\s+\*\s+as\s+(\w+)\s+from\s+[\'"]([^\'"]+)[\'"]\s*;?', re.M)
+TS_IMPORT_NAMED  = re.compile(r'^\s*import\s+\{([^}]+)\}\s+from\s+[\'"]([^\'"]+)[\'"]\s*;?', re.M)
+TS_IMPORT_DEFAULT= re.compile(r'^\s*import\s+(\w+)\s+from\s+[\'"]([^\'"]+)[\'"]\s*;?', re.M)
+
+def _resolve_ts_candidates(current_path:str, spec:str) -> list[str]:
+    """
+    상대경로 import만 처리. (절대/패키지 import는 생략)
+    경로 후보 다수 반환(확장자/인덱스 파일)
+    """
+    if not spec.startswith("."):
+        return []
+    base = str(PurePosixPath(current_path).parent)
+    candidates = [
+        spec + ".ts", spec + ".tsx", spec + ".js", spec + ".jsx",
+        spec + "/index.ts", spec + "/index.tsx", spec + "/index.js", spec + "/index.jsx",
+    ]
+    return [str(PurePosixPath(base) / c) for c in candidates]
+
+def _ts_guess_paths(file_path:str, code:str, max_candidates:int=8) -> list[str]:
+    """
+    TS/JS: import 사용 여부 기반으로 의존 파일 경로 추정 (BFS depth=1)
+    - 상대경로만 대상
+    - 실제 사용 흔적(alias., named())이 있는 것만 포함
+    """
+    used_paths = []
+
+    # import * as Alias from './util'
+    for alias, spec in TS_IMPORT_STAR.findall(code):
+        if re.search(rf'\b{re.escape(alias)}\s*\.', code):
+            used_paths.extend(_resolve_ts_candidates(file_path, spec))
+
+    # import { a, b } from './x'
+    for names, spec in TS_IMPORT_NAMED.findall(code):
+        any_used = False
+        for n in [x.strip().split(" as ")[-1] for x in names.split(",")]:
+            if re.search(rf'\b{re.escape(n)}\s*\(', code):
+                any_used = True
+                break
+        if any_used:
+            used_paths.extend(_resolve_ts_candidates(file_path, spec))
+
+    # import Default from './y'
+    for alias, spec in TS_IMPORT_DEFAULT.findall(code):
+        if re.search(rf'\b{re.escape(alias)}\s*\(', code) or re.search(rf'\b{re.escape(alias)}\s*\.', code):
+            used_paths.extend(_resolve_ts_candidates(file_path, spec))
+
+    # 중복/개수 제한
+    dedup = []
+    for p in used_paths:
+        # 경로 표준화: Windows 대비 슬래시 통일
+        p = str(PurePosixPath(p))
+        if p not in dedup:
+            dedup.append(p)
+        if len(dedup) >= max_candidates:
+            break
+    return dedup
+
+def collect_bfs1_dep_paths(file_path:str, code:str, max_total:int=10) -> list[str]:
+    """
+    언어 감지 없이 간단 규칙:
+    - Java 소스면 .java 기준으로 시도
+    - 그 외엔 TS/JS 규칙
+    반환: repo 루트 기준의 상대경로 리스트(가능 후보 포함)
+    """
+    if file_path.endswith(".java"):
+        cands = _java_guess_paths(file_path, code)
+    else:
+        cands = _ts_guess_paths(file_path, code)
+    # 최종 제한
+    return cands[:max_total]
+
+async def fetch_files_by_paths_via_mcp(mcp_client, repo_full_name:str, commit_sha:str, paths:list[str]) -> list[dict]:
+    """
+    MCP에 '이 경로들의 파일 내용을 SHA 기준으로 달라'라고 요청.
+    서버의 실제 도구명은 LLM이 선택(=기존 process_query 패턴 유지).
+    표준화된 응답 형태로 파싱: [{"fileName": "...", "code": "..."}]
+    """
+    if not paths:
+        return []
+
+    query = (
+        f"GitHub 리포지토리 '{repo_full_name}'의 커밋 '{commit_sha}' 기준으로 "
+        f"다음 파일들의 전체 내용을 경로와 함께 JSON으로 반환해줘.\n"
+        f"반환 스키마: {{\"files\":[{{\"fileName\":\"<경로>\",\"code\":\"<내용>\"}}]}}\n"
+        f"대상 경로 목록: {paths}"
+    )
+    resp = await mcp_client.process_query(query)
+    items = []
+    if resp and isinstance(resp, dict):
+        # 예상 응답 형태 1: {"files":[{"fileName": "...","code":"..."}]}
+        if "files" in resp and isinstance(resp["files"], list):
+            items = resp["files"]
+        # 예상 응답 형태 2: 바로 리스트
+        elif isinstance(resp.get("items"), list):
+            items = resp["items"]
+    return items
+
+def build_dependency_blob(dep_files: list[dict], per_file_limit:int=16000, total_limit:int=64000) -> str:
+    """
+    의존 파일들을 합쳐 하나의 큰 블롭으로(코드량 제한 포함)
+    """
+    chunks = []
+    total = 0
+    for f in dep_files:
+        path = f.get("fileName") or f.get("path") or "unknown"
+        code = (f.get("code") or "")[:per_file_limit]
+        header = f"// ==== DEP: {path} ====\n"
+        piece = header + code + "\n"
+        if total + len(piece) > total_limit:
+            break
+        chunks.append(piece)
+        total += len(piece)
+    return "\n".join(chunks)
+# =======================================================================
+
+
+## 추가1 END
+
 
 vector_store, _embeddings = load_or_build_vector_store()
 retriever = vector_store.as_retriever(search_kwargs={'k': 3})
