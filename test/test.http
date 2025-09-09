@@ -35,7 +35,7 @@ X-GitHub-Event: push
   }
 }
 
-### Pull Request Payload
+### 파일 변경점 3개 케이스 (PR #1)
 POST http://localhost:8000/webhook
 Content-Type: application/json
 X-GitHub-Event: pull_request
@@ -45,7 +45,26 @@ X-GitHub-Event: pull_request
   "number": 1,
   "pull_request": {
     "head": {
-      "sha": "beff35bf72321a4e8cd9aaf4e4b068425ed4e798"
+      "sha": "326ede6a93a096a6f4ded59f65639677e297d005"
+    }
+  },
+  "repository": {
+    "full_name": "HorangApple/sports-portal"
+  }
+}
+
+### 파일 변경점 52개 케이스 (PR #2)
+### LLM 개선 전까지는 테스트 금지
+POST http://localhost:8000/webhook
+Content-Type: application/json
+X-GitHub-Event: pull_request
+
+{
+  "pr_comment_send" : false,
+  "number": 2,
+  "pull_request": {
+    "head": {
+      "sha": "326ede6a93a096a6f4ded59f65639677e297d005"
     }
   },
   "repository": {

@@ -49,9 +49,6 @@ def get_files_content_by_sha(
                 if content_item.encoding == "base64":
                     code = base64.b64decode(content_item.content).decode('utf-8')
                 else:
-                    # base64로 인코딩되지 않은 콘텐츠(예: 심볼릭 링크, PyGithub에 의해 다르게 가져와지는 큰 파일)의 경우
-                    # PyGithub의 get_contents는 큰 파일에 대해 GitBlob 객체를 반환할 수 있으며,
-                    # 이 객체는 decoded_content 속성을 가집니다.
                     code = content_item.decoded_content.decode('utf-8')
 
                 files_content_list.append({
@@ -62,7 +59,6 @@ def get_files_content_by_sha(
                 logger.warning(f"Error fetching content for {file_path} at SHA {sha}: {e}")
     except Exception as e:
         logger.error(f"An overall error occurred while fetching files content: {e}")
-        # 원하는 오류 처리 방식에 따라 빈 리스트를 반환하거나 예외를 발생시킵니다.
         return {
             "sha": sha,
             "files": []
@@ -122,7 +118,7 @@ def get_commit_changed_files_content(
         repo = g.get_repo(repo_full_name)
         commit = repo.get_commit(sha=commit_sha)
         
-        changed_files_paths = [file.filename for file in commit.files if file.status != 'removed'] # Exclude removed files
+        changed_files_paths = [file.filename for file in commit.files if file.status != 'removed']
         
         return get_files_content_by_sha(repo_full_name, changed_files_paths, commit_sha)
     except Exception as e:
@@ -161,7 +157,7 @@ def get_diff_files_content_between_branches(
         
         changed_files_paths = []
         for file in comparison.files:
-            if file.status != 'removed': # 삭제된 파일은 제외
+            if file.status != 'removed':
                 changed_files_paths.append(file.filename)
         
         return get_files_content_by_sha(repo_full_name, changed_files_paths, compare_branch_sha)

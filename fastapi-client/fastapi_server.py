@@ -25,6 +25,7 @@ from graph.node import code_interpreter, compare_to_rfp
 from graph.build import create_code_compare_to_rfp_graph
 from graph.state import AgentState
 from result_processor import process_code_comparison_result
+from github_service import get_pr_changed_files_content, get_commit_changed_files_content
 
 
 mcp_client_instance: MCPClient = None
@@ -101,33 +102,38 @@ async def github_webhook(request: Request):
     data = await request.json()
     event_type = request.headers.get('X-GitHub-Event')
 
-    repo_full_name = None
-    commit_sha = None
-
     try:
+        repo_full_name = None
+        pr_number = None
+        commit_sha = None
+
+        commitResult = None
+
         if event_type == 'push':
             print("Push 이벤트 수신")
+
             repo_full_name = data['repository']['full_name']
             commit_sha = data['head_commit']['id']
+            print(f"Webhook 처리 시작: {repo_full_name}, Commit SHA: {commit_sha}")
+            
+            commitResult = get_commit_changed_files_content(repo_full_name, commit_sha)
 
         elif event_type == 'pull_request':
             print("Pull Request 이벤트 수신")
+
             repo_full_name = data['repository']['full_name']
+            pr_number = data['number']
             commit_sha = data['pull_request']['head']['sha']
+            print(f"Webhook 처리 시작: {repo_full_name}, PR: #{pr_number}, Commit SHA: {commit_sha}")
+            
+            commitResult = get_pr_changed_files_content(repo_full_name, pr_number)
         
         else:
             print(f"지원하지 않는 이벤트 타입입니다: {event_type}")
             return {"status": "ignored", "message": f"Unsupported event type: {event_type}"}
 
-        print(f"Webhook 처리 시작: {repo_full_name}, Commit SHA: {commit_sha}")
-
-        query = f"GitHub 리포지토리 '{repo_full_name}'의 커밋 '{commit_sha}'에서 변경된 파일 목록과 각 파일의 전체 내용을 가져와줘."
-        start = time.time() # LLM 호출 시간 측정 용. 
-        commitResult = await mcp_client_instance.process_query(query) # TODO: process_query 함수 모듈화 or 함수명 변경
-
-        if not commitResult:
+        if not commitResult or not commitResult.get('files'):
             return {"status": "error", "message": "커밋 데이터 조회에 실패했습니다."}
-        print(f"LLM Tool Calling Time : {time.time()-start:.4f} sec") # Tool 호출 시간 출력
 
         
         # RAG 불러오기.
