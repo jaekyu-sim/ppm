@@ -11,9 +11,7 @@ from langchain_core.runnables import RunnableLambda
 from statistics import mean
 from langchain_core.prompts import PromptTemplate
 
-from mcp_client import MCPClient
 from smee_client import SmeeClientManager
-import time
 
 from rag_boot import load_or_build_vector_store
 #from rag_feature import extract_features, build_query_from_features
@@ -28,7 +26,6 @@ from result_processor import process_code_comparison_result
 from github_service import get_pr_changed_files_content, get_commit_changed_files_content
 
 
-mcp_client_instance: MCPClient = None
 smee_client_manager: SmeeClientManager = None
 
 vector_store, _embeddings = load_or_build_vector_store()
@@ -58,44 +55,18 @@ async def lifespan(app: FastAPI):
         print(f"Smee 클라이언트 시작 실패: {e}")
     print("Smee 클라이언트 시작.")
 
-    # MCP 서버 연결
-    print("MCP 서버에 연결 시도...")
-
-    mcp_client_instance = MCPClient()
-
-    try:
-        await mcp_client_instance.connect_to_server("fastmcp-server/mcp_server.py")
-        print("MCP 서버 연결 성공.")
-    except Exception as e:
-        print(f"MCP 서버 연결 실패: {e}")
-
     print("FastAPI 시작.")
 
-    # FastAPI 종료 시 MCP 클라이언트 리소스 정리
     yield
-    print("FastAPI 종료 중, MCP 클라이언트 정리...")
-    await mcp_client_instance.cleanup()
+    print("FastAPI 종료 중...")
     if smee_client_manager:
         await smee_client_manager.stop()
-    print("MCP 클라이언트 정리 완료.")
 
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def root():
    return {"message": "FastAPI 서버가 실행 중입니다!"}
-
-@app.get("/tools")
-async def get_mcp_tools():
-    if not mcp_client_instance or not mcp_client_instance.session:
-        return {"error": "MCP 클라이언트가 연결되지 않았습니다."}, 500
-
-    try:
-        response = await mcp_client_instance.session.list_tools()
-        tool_names = [tool.name for tool in response.tools]
-        return {"tools": tool_names}
-    except Exception as e:
-        return {"error": f"MCP 도구 목록 조회 중 오류 발생: {e}"}, 500
 
 @app.post("/webhook")
 async def github_webhook(request: Request):
@@ -173,7 +144,7 @@ async def github_webhook(request: Request):
         pr_comment_send = data.get('pr_comment_send', True)
         pr_number = data['number']
 
-        result_markdown = await process_code_comparison_result(mcp_client_instance, final_result, repo_full_name, pr_comment_send, pr_number)
+        result_markdown = await process_code_comparison_result(final_result, repo_full_name, pr_comment_send, pr_number)
 
         return Response(content=result_markdown, media_type="text/markdown")
     

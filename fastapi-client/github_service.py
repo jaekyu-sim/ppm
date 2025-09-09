@@ -7,6 +7,7 @@ import logging
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
+g = Github(os.getenv("GITHUB_TOKEN"))
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,6 @@ def get_files_content_by_sha(
     files_content_list: List[FileContent] = []
     
     try:
-        g = Github(os.getenv("GITHUB_TOKEN"))
         repo = g.get_repo(repo_full_name)
 
         for file_path in file_paths:
@@ -114,7 +114,6 @@ def get_commit_changed_files_content(
         CommitFilesContent: 커밋 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
     """
     try:
-        g = Github(os.getenv("GITHUB_TOKEN"))
         repo = g.get_repo(repo_full_name)
         commit = repo.get_commit(sha=commit_sha)
         
@@ -145,7 +144,6 @@ def get_diff_files_content_between_branches(
         CommitFilesContent: 비교 브랜치의 최신 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
     """
     try:
-        g = Github(os.getenv("GITHUB_TOKEN"))
         repo = g.get_repo(repo_full_name)
 
         # 비교 브랜치의 최신 SHA 가져오기
@@ -168,6 +166,27 @@ def get_diff_files_content_between_branches(
             "files": []
         }
 
+def post_pr_comment(repo_full_name: str, pr_number: int, body: str):
+    """
+    지정된 Pull Request에 코멘트를 게시합니다.
+
+    Args:
+        repo_full_name (str): GitHub 리포지토리의 전체 이름 (예: 'owner/repo').
+        pr_number (int): 코멘트를 게시할 Pull Request 번호.
+        body (str): 코멘트 내용.
+
+    Returns:
+        Dict[str, str]: 작업 성공 여부와 메시지를 포함하는 딕셔너리.
+    """
+
+    try:
+        repo = g.get_repo(repo_full_name)
+        pull = repo.get_pull(pr_number)
+        pull.create_issue_comment(body)
+        return {"resultStatus": "success"}
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return {"resultStatus": "error", "message": str(e)}
 
 if __name__ == "__main__":
 

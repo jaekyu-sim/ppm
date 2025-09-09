@@ -1,22 +1,5 @@
 from typing import Any, Dict
-from github import Github
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-async def post_pr_comment(mcp_client: Any, repo_full_name: str, pr_number: int, body: str):
-
-    try:
-        g = Github(os.getenv("GITHUB_TOKEN"))
-        repo = g.get_repo(repo_full_name)
-        pull = repo.get_pull(pr_number)
-        pull.create_issue_comment(body)
-        return {"resultStatus": "success"}
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return {"resultStatus": "error", "message": str(e)}
-    
+from github_service import post_pr_comment
 
 def format_compare_result_to_markdown(compare_result: Dict[str, Any]) -> str:
 
@@ -89,14 +72,14 @@ def format_compare_result_to_markdown(compare_result: Dict[str, Any]) -> str:
 
     return markdown
 
-async def process_code_comparison_result(mcp_client: Any, final_result: Dict[str, Any], repo_full_name: str, pr_comment_send: bool, pr_number: int | None) -> str:
+async def process_code_comparison_result(final_result: Dict[str, Any], repo_full_name: str, pr_comment_send: bool, pr_number: int | None) -> str:
     
     markdown_output = format_compare_result_to_markdown(final_result)
 
     # PR 코멘트 등록 로직
     if pr_comment_send is True:
         if pr_number and repo_full_name:
-            await post_pr_comment(mcp_client, repo_full_name, pr_number, markdown_output)
+            await post_pr_comment(repo_full_name, pr_number, markdown_output)
         else:
             print("PR 번호 또는 리포지토리 이름을 찾을 수 없어 코멘트를 등록하지 못했습니다.")
     
