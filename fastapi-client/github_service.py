@@ -1,0 +1,210 @@
+import os
+import base64
+from typing import List, TypedDict, Optional
+from github import Github
+from dotenv import load_dotenv
+import logging
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# --- 데이터 구조 ---
+class FileContent(TypedDict):
+    fileName: str
+    code: str
+
+class CommitFilesContent(TypedDict):
+    sha: str
+    files: List[FileContent]
+
+# --- 메인 함수 ---
+def get_files_content_by_sha(
+    repo_full_name: str, 
+    file_paths: List[str], 
+    sha: str
+) -> CommitFilesContent:
+    """
+    주어진 SHA를 기준으로 파일 경로 리스트에 해당하는 파일들의 전체 소스 코드를 반환합니다.
+
+    Args:
+        repo_full_name (str): GitHub 리포지토리의 전체 이름 (예: 'owner/repo').
+        file_paths (List[str]): 소스 코드를 가져올 파일 경로 리스트.
+        sha (str): 파일 내용을 가져올 커밋 SHA.
+
+    Returns:
+        CommitFilesContent: SHA 정보와 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+    """
+    files_content_list: List[FileContent] = []
+    
+    try:
+        g = Github(os.getenv("GITHUB_TOKEN"))
+        repo = g.get_repo(repo_full_name)
+
+        for file_path in file_paths:
+            try:
+                content_item = repo.get_contents(file_path, ref=sha)
+                
+                if content_item.encoding == "base64":
+                    code = base64.b64decode(content_item.content).decode('utf-8')
+                else:
+                    # base64로 인코딩되지 않은 콘텐츠(예: 심볼릭 링크, PyGithub에 의해 다르게 가져와지는 큰 파일)의 경우
+                    # PyGithub의 get_contents는 큰 파일에 대해 GitBlob 객체를 반환할 수 있으며,
+                    # 이 객체는 decoded_content 속성을 가집니다.
+                    code = content_item.decoded_content.decode('utf-8')
+
+                files_content_list.append({
+                    "fileName": file_path,
+                    "code": code
+                })
+            except Exception as e:
+                logger.warning(f"Error fetching content for {file_path} at SHA {sha}: {e}")
+    except Exception as e:
+        logger.error(f"An overall error occurred while fetching files content: {e}")
+        # 원하는 오류 처리 방식에 따라 빈 리스트를 반환하거나 예외를 발생시킵니다.
+        return {
+            "sha": sha,
+            "files": []
+        }
+    
+    return {
+        "sha": sha,
+        "files": files_content_list
+    }
+
+def get_pr_changed_files_content(
+    repo_full_name: str, 
+    pr_number: int
+) -> CommitFilesContent:
+    """
+    Pull Request에서 변경된 파일 목록을 가져와 해당 파일들의 전체 소스 코드를 반환합니다.
+
+    Args:
+        repo_full_name (str): GitHub 리포지토리의 전체 이름 (예: 'owner/repo').
+        pr_number (int): Pull Request 번호.
+
+    Returns:
+        CommitFilesContent: PR의 최신 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+    """
+    try:
+        g = Github(os.getenv("GITHUB_TOKEN"))
+        repo = g.get_repo(repo_full_name)
+        pr = repo.get_pull(pr_number)
+        
+        head_sha = pr.head.sha
+        changed_files_paths = [file.filename for file in pr.get_files()]
+        
+        return get_files_content_by_sha(repo_full_name, changed_files_paths, head_sha)
+    except Exception as e:
+        logger.error(f"Error getting PR changed files content for PR #{pr_number}: {e}")
+        return {
+            "sha": "",
+            "files": []
+        }
+
+def get_commit_changed_files_content(
+    repo_full_name: str, 
+    commit_sha: str
+) -> CommitFilesContent:
+    """
+    특정 커밋에서 변경된 파일 목록을 가져와 해당 파일들의 전체 소스 코드를 반환합니다.
+
+    Args:
+        repo_full_name (str): GitHub 리포지토리의 전체 이름 (예: 'owner/repo').
+        commit_sha (str): 파일 내용을 가져올 커밋의 SHA.
+
+    Returns:
+        CommitFilesContent: 커밋 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+    """
+    try:
+        g = Github(os.getenv("GITHUB_TOKEN"))
+        repo = g.get_repo(repo_full_name)
+        commit = repo.get_commit(sha=commit_sha)
+        
+        changed_files_paths = [file.filename for file in commit.files if file.status != 'removed'] # Exclude removed files
+        
+        return get_files_content_by_sha(repo_full_name, changed_files_paths, commit_sha)
+    except Exception as e:
+        logger.error(f"Error getting commit changed files content for commit {commit_sha}: {e}")
+        return {
+            "sha": commit_sha,
+            "files": []
+        }
+
+def get_diff_files_content_between_branches(
+    repo_full_name: str,
+    base_branch: str,
+    compare_branch: str
+) -> CommitFilesContent:
+    """
+    두 브랜치 간에 변경된 파일 목록을 가져와 비교 브랜치 기준으로 해당 파일들의 전체 소스 코드를 반환합니다.
+
+    Args:
+        repo_full_name (str): GitHub 리포지토리의 전체 이름 (예: 'owner/repo').
+        base_branch (str): 비교의 기준이 되는 브랜치 이름 (예: 'main').
+        compare_branch (str): 기준 브랜치와 비교할 브랜치 이름 (예: 'feature/new-feature').
+
+    Returns:
+        CommitFilesContent: 비교 브랜치의 최신 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+    """
+    try:
+        g = Github(os.getenv("GITHUB_TOKEN"))
+        repo = g.get_repo(repo_full_name)
+
+        # 비교 브랜치의 최신 SHA 가져오기
+        compare_branch_obj = repo.get_branch(compare_branch)
+        compare_branch_sha = compare_branch_obj.commit.sha
+
+        # 두 브랜치 간의 비교
+        comparison = repo.compare(base_branch, compare_branch)
+        
+        changed_files_paths = []
+        for file in comparison.files:
+            if file.status != 'removed': # 삭제된 파일은 제외
+                changed_files_paths.append(file.filename)
+        
+        return get_files_content_by_sha(repo_full_name, changed_files_paths, compare_branch_sha)
+    except Exception as e:
+        logger.error(f"Error getting diff files content between {base_branch} and {compare_branch}: {e}")
+        return {
+            "sha": "",
+            "files": []
+        }
+
+
+if __name__ == "__main__":
+
+    # Constants for testing
+    TEST_REPO = "HorangApple/sports-portal"
+    TEST_PR_NUMBER = 2
+    TEST_COMMIT_SHA = "beff35bf72321a4e8cd9aaf4e4b068425ed4e798"
+    TEST_BASE_BRANCH = "dev_main"
+    TEST_COMPARE_BRANCH = "SFR-113"
+
+    print("--- Testing get_pr_changed_files_content ---")
+    pr_content = get_pr_changed_files_content(TEST_REPO, TEST_PR_NUMBER)
+    print(f"PR SHA: {pr_content['sha']}")
+    print(f"Total files in PR: {len(pr_content['files'])}")
+    for file_data in pr_content['files']:
+        print(f"  File: {file_data['fileName']}")
+        # print(f"    Code: {file_data['code'][:100]}...")
+    print("-" * 50)
+
+    print("--- Testing get_commit_changed_files_content ---")
+    commit_content = get_commit_changed_files_content(TEST_REPO, TEST_COMMIT_SHA)
+    print(f"Commit SHA: {commit_content['sha']}")
+    print(f"Total files in Commit: {len(commit_content['files'])}")
+    for file_data in commit_content['files']:
+        print(f"  File: {file_data['fileName']}")
+        # print(f"    Code: {file_data['code'][:100]}...")
+    print("-" * 50)
+
+    print("--- Testing get_diff_files_content_between_branches ---")
+    diff_content = get_diff_files_content_between_branches(TEST_REPO, TEST_BASE_BRANCH, TEST_COMPARE_BRANCH)
+    print(f"Compare Branch SHA: {diff_content['sha']}")
+    print(f"Total files in Diff: {len(diff_content['files'])}")
+    for file_data in diff_content['files']:
+        print(f"  File: {file_data['fileName']}")
+        # print(f"    Code: {file_data['code'][:100]}...")
+    print("-" * 50)
