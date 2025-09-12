@@ -103,41 +103,50 @@ async def github_webhook(request: Request):
             print(f"지원하지 않는 이벤트 타입입니다: {event_type}")
             return {"status": "ignored", "message": f"Unsupported event type: {event_type}"}
 
-        if not commitResult or not commitResult.get('files'):
+        if not commitResult or not commitResult.get('file_list'):
             return {"status": "error", "message": "커밋 데이터 조회에 실패했습니다."}
 
         
         # RAG 불러오기.
-        files = commitResult['files']
+        file_list = commitResult['file_list']
         all_answers = []
         
-        for i in range(len(files)):
-            file_path = files[i]['fileName']
-            file_code = files[i]['code']
+        graph = create_code_compare_to_rfp_graph()
+        compare_result = graph.invoke({'file_code': file_list})
+
+        print("==============================================================")
+        print("FINAL RESULT : ", compare_result)
+        
+        if compare_result and 'answer' in compare_result:
+            all_answers.extend(compare_result['answer'])
+
+        # for i in range(len(file_list)):
+        #     file_path = file_list[i]['fileName']
+        #     file_code = file_list[i]['code']
             
-            # code_interpreter_prompt = PromptTemplate.from_template(code_interpreter_template)
-            # code_interpreter_result_chain = code_interpreter_prompt | llm | StrOutputParser()
-            # result = code_interpreter_result_chain.invoke({"information": file_code})
-            #print("code_interpreter node 실행 시작")
-            state = AgentState(file_code=files[i]['code'])
+        #     # code_interpreter_prompt = PromptTemplate.from_template(code_interpreter_template)
+        #     # code_interpreter_result_chain = code_interpreter_prompt | llm | StrOutputParser()
+        #     # result = code_interpreter_result_chain.invoke({"information": file_code})
+        #     #print("code_interpreter node 실행 시작")
+        #     state = AgentState(file_code=file_list[i]['code'])
 
     
-            # # NODE 1 시작
-            # result = code_interpreter(state)
-            # result = result['answer']
+        #     # # NODE 1 시작
+        #     # result = code_interpreter(state)
+        #     # result = result['answer']
 
-            # # NODE 2 시작
-            # state = AgentState(answer=result)
-            # answ = compare_to_rfp(state)
-            # print("*** sss *** sss : ", answ)
+        #     # # NODE 2 시작
+        #     # state = AgentState(answer=result)
+        #     # answ = compare_to_rfp(state)
+        #     # print("*** sss *** sss : ", answ)
 
-            graph = create_code_compare_to_rfp_graph()
-            compare_result = graph.invoke({'file_code': files[i]['code']})
-            print("==============================================================")
-            print("FINAL RESULT : ", compare_result)
+        #     graph = create_code_compare_to_rfp_graph()
+        #     compare_result = graph.invoke({'file_code': file_list[i]['code']})
+        #     print("==============================================================")
+        #     print("FINAL RESULT : ", compare_result)
             
-            if compare_result and 'answer' in compare_result:
-                all_answers.extend(compare_result['answer'])
+        #     if compare_result and 'answer' in compare_result:
+        #         all_answers.extend(compare_result['answer'])
 
         final_result = {'answer': all_answers}
         

@@ -13,19 +13,19 @@ logger = logging.getLogger(__name__)
 
 # --- 데이터 구조 ---
 class FileContent(TypedDict):
-    fileName: str
+    file_name: str
     code: str
 
-class CommitFilesContent(TypedDict):
+class ChangedFilesContent(TypedDict):
     sha: str
-    files: List[FileContent]
+    file_list: List[FileContent]
 
 # --- 메인 함수 ---
 def get_files_content_by_sha(
     repo_full_name: str, 
     file_paths: List[str], 
     sha: str
-) -> CommitFilesContent:
+) -> ChangedFilesContent:
     """
     주어진 SHA를 기준으로 파일 경로 리스트에 해당하는 파일들의 전체 소스 코드를 반환합니다.
 
@@ -35,7 +35,7 @@ def get_files_content_by_sha(
         sha (str): 파일 내용을 가져올 커밋 SHA.
 
     Returns:
-        CommitFilesContent: SHA 정보와 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+        ChangedFilesContent: SHA 정보와 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
     """
     files_content_list: List[FileContent] = []
     
@@ -52,7 +52,7 @@ def get_files_content_by_sha(
                     code = content_item.decoded_content.decode('utf-8')
 
                 files_content_list.append({
-                    "fileName": file_path,
+                    "file_name": file_path,
                     "code": code
                 })
             except Exception as e:
@@ -61,18 +61,18 @@ def get_files_content_by_sha(
         logger.error(f"An overall error occurred while fetching files content: {e}")
         return {
             "sha": sha,
-            "files": []
+            "file_list": []
         }
     
     return {
         "sha": sha,
-        "files": files_content_list
+        "file_list": files_content_list
     }
 
 def get_pr_changed_files_content(
     repo_full_name: str, 
     pr_number: int
-) -> CommitFilesContent:
+) -> ChangedFilesContent:
     """
     Pull Request에서 변경된 파일 목록을 가져와 해당 파일들의 전체 소스 코드를 반환합니다.
 
@@ -81,7 +81,7 @@ def get_pr_changed_files_content(
         pr_number (int): Pull Request 번호.
 
     Returns:
-        CommitFilesContent: PR의 최신 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+        ChangedFilesContent: PR의 최신 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
     """
     try:
         g = Github(os.getenv("GITHUB_TOKEN"))
@@ -96,13 +96,13 @@ def get_pr_changed_files_content(
         logger.error(f"Error getting PR changed files content for PR #{pr_number}: {e}")
         return {
             "sha": "",
-            "files": []
+            "file_list": []
         }
 
 def get_commit_changed_files_content(
     repo_full_name: str, 
     commit_sha: str
-) -> CommitFilesContent:
+) -> ChangedFilesContent:
     """
     특정 커밋에서 변경된 파일 목록을 가져와 해당 파일들의 전체 소스 코드를 반환합니다.
 
@@ -111,7 +111,7 @@ def get_commit_changed_files_content(
         commit_sha (str): 파일 내용을 가져올 커밋의 SHA.
 
     Returns:
-        CommitFilesContent: 커밋 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+        ChangedFilesContent: 커밋 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
     """
     try:
         repo = g.get_repo(repo_full_name)
@@ -124,14 +124,14 @@ def get_commit_changed_files_content(
         logger.error(f"Error getting commit changed files content for commit {commit_sha}: {e}")
         return {
             "sha": commit_sha,
-            "files": []
+            "file_list": []
         }
 
 def get_diff_files_content_between_branches(
     repo_full_name: str,
     base_branch: str,
     compare_branch: str
-) -> CommitFilesContent:
+) -> ChangedFilesContent:
     """
     두 브랜치 간에 변경된 파일 목록을 가져와 비교 브랜치 기준으로 해당 파일들의 전체 소스 코드를 반환합니다.
 
@@ -141,7 +141,7 @@ def get_diff_files_content_between_branches(
         compare_branch (str): 기준 브랜치와 비교할 브랜치 이름 (예: 'feature/new-feature').
 
     Returns:
-        CommitFilesContent: 비교 브랜치의 최신 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
+        ChangedFilesContent: 비교 브랜치의 최신 SHA 정보와 변경된 파일 경로, 파일 전체 코드를 포함하는 딕셔너리.
     """
     try:
         repo = g.get_repo(repo_full_name)
@@ -163,7 +163,7 @@ def get_diff_files_content_between_branches(
         logger.error(f"Error getting diff files content between {base_branch} and {compare_branch}: {e}")
         return {
             "sha": "",
-            "files": []
+            "file_list": []
         }
 
 def post_pr_comment(repo_full_name: str, pr_number: int, body: str):
@@ -200,26 +200,26 @@ if __name__ == "__main__":
     print("--- Testing get_pr_changed_files_content ---")
     pr_content = get_pr_changed_files_content(TEST_REPO, TEST_PR_NUMBER)
     print(f"PR SHA: {pr_content['sha']}")
-    print(f"Total files in PR: {len(pr_content['files'])}")
-    for file_data in pr_content['files']:
-        print(f"  File: {file_data['fileName']}")
+    print(f"Total files in PR: {len(pr_content['file_list'])}")
+    for file_data in pr_content['file_list']:
+        print(f"  File: {file_data['file_name']}")
         # print(f"    Code: {file_data['code'][:100]}...")
     print("-" * 50)
 
     print("--- Testing get_commit_changed_files_content ---")
     commit_content = get_commit_changed_files_content(TEST_REPO, TEST_COMMIT_SHA)
     print(f"Commit SHA: {commit_content['sha']}")
-    print(f"Total files in Commit: {len(commit_content['files'])}")
-    for file_data in commit_content['files']:
-        print(f"  File: {file_data['fileName']}")
+    print(f"Total files in Commit: {len(commit_content['file_list'])}")
+    for file_data in commit_content['file_list']:
+        print(f"  File: {file_data['file_name']}")
         # print(f"    Code: {file_data['code'][:100]}...")
     print("-" * 50)
 
     print("--- Testing get_diff_files_content_between_branches ---")
     diff_content = get_diff_files_content_between_branches(TEST_REPO, TEST_BASE_BRANCH, TEST_COMPARE_BRANCH)
     print(f"Compare Branch SHA: {diff_content['sha']}")
-    print(f"Total files in Diff: {len(diff_content['files'])}")
-    for file_data in diff_content['files']:
-        print(f"  File: {file_data['fileName']}")
+    print(f"Total files in Diff: {len(diff_content['file_list'])}")
+    for file_data in diff_content['file_list']:
+        print(f"  File: {file_data['file_name']}")
         # print(f"    Code: {file_data['code'][:100]}...")
     print("-" * 50)
