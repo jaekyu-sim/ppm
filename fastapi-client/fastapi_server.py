@@ -13,7 +13,8 @@ from langchain_core.prompts import PromptTemplate
 
 from smee_client import SmeeClientManager
 
-from rag_boot import load_or_build_vector_store
+#from rag_boot import load_or_build_vector_store
+from rag_boot_phase2 import load_or_build_vector_store
 #from rag_feature import extract_features, build_query_from_features
 #from rag_utils import search_requirements, judge_one
 #from req_check_graph import create_req_check_graph

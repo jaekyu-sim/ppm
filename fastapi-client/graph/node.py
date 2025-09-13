@@ -2,7 +2,8 @@ import json
 from langchain_core.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
-from rag_boot import load_or_build_vector_store
+#from rag_boot import load_or_build_vector_store
+from rag_boot_phase2 import load_or_build_vector_store
 from .state import AgentState
 import re
 
