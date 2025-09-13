@@ -31,4 +31,4 @@ def parse_methods_from_file(state: AgentState) -> List[FileParseResult]:
             "method_list": parsed_methods
         })
 
-    return { "methods_by_file" : result_list }
+    return { "parsed_methods" : result_list }
