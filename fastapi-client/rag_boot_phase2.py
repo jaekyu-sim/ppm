@@ -76,7 +76,8 @@ def load_or_build_vector_store():
     else:
         print("Vector DB 부재. 생성 시작.")
         # 1. 문서 로드
-        file_path = "docs/RFP_requirements.md"
+        base_dir = Path(__file__).resolve().parent  
+        file_path = base_dir / "docs" / "RFP_requirements.md"
 
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
