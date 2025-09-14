@@ -6,6 +6,7 @@ from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from rag_boot_phase2 import load_or_build_vector_store
 from .state import AgentState
 import re
+import ast
 
 
 vector_store, _embeddings = load_or_build_vector_store()
@@ -75,16 +76,47 @@ def match_summary_to_requirement(state:AgentState):
 
     file_list = state['parsed_methods']
 
-    for file_object in file_list:
+    print("--- " + "- " * 10 + "4단계: 요약문을 RAG에 검색하여 요구사항 매칭 시작" + "- " * 10 + " ---")
 
+    for file_object in file_list:
         for method in file_object.get('method_list', []):
             summary = method.get('summary')
+            rfp_number = 'N/A'
+            requirement_content = 'N/A'
+            score = 0.0
             
             if summary:
-                # RAG retriever를 사용하여 유사한 요구사항 문서를 검색합니다.
-                docs = retriever.invoke(summary)
+                scored_docs = vector_store.similarity_search_with_score(summary, k=3)
                 
-    return None
+                if scored_docs:
+                    top_doc, score = scored_docs[0]
+                    rfp_number = top_doc.metadata.get('list_name', 'N/A')
+                    
+                    try:
+                        # ast.literal_eval을 사용하여 문자열을 안전하게 Python 객체로 변환
+                        page_content_dict = ast.literal_eval(top_doc.page_content)
+                        if isinstance(page_content_dict, dict):
+                            requirement_content = page_content_dict.get('내용', 'Content key not found')
+                        else:
+                            requirement_content = top_doc.page_content
+                    except (ValueError, SyntaxError):
+                        # 파싱에 실패하면 원본 문자열을 그대로 사용
+                        requirement_content = top_doc.page_content
+            
+            method['rfp_number'] = rfp_number
+
+            print(
+                f"[File: {file_object['file_name']}]\n"
+                f"  - Method: {method['method_name']}\n"
+                f"  - Summary: {summary or 'No summary available'}\n"
+                f"  => Matched RFP: {rfp_number} (Score: {score:.4f})\n"
+                f"     ㄴ 내용: {requirement_content}\n"
+                f"--------------------------------------------------"
+            )
+            
+    print("--- " + "- " * 10 + "4단계: 요구사항 매칭 완료" + "- " * 10 + " ---")
+
+    return { 'parsed_methods' : file_list }
 
 code_interpreter_prompt = PromptTemplate.from_template(
     """
@@ -122,7 +154,8 @@ code_interpreter_prompt = PromptTemplate.from_template(
     }}```
 
     이제 제공된 'information List'를 분석하고, 위의 JSON 형식을 **반드시** 준수하여 결과물을 생성하세요. 다른 말은 절대 추가하지 마세요.
-    """)
+    """
+)
 
 
 def code_interpreter(state:AgentState):
@@ -222,7 +255,7 @@ def compare_to_rfp(state:AgentState):
         data["requirements_candidates"] = [
             {
                 "id": d.metadata.get("id") or d.metadata.get("source"),
-                #"score": getattr(d, "score", None),
+                "#score": getattr(d, "score", None),
                 "snippet": d.page_content[:300]
             } for d in docs
         ]
