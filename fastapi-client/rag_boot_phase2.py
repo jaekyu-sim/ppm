@@ -53,8 +53,7 @@ def extract_output_after_removing_think(text: str, return_json=False):
         return None
 
     if return_json:
-        inner = re.search(r"<output>(.*)</output>", picked, flags=re.DOTALL | re.IGNORECASE).group(1).strip()
-        return json.loads(inner) 
+        return json.loads(picked) 
     else:
         return picked
 
@@ -128,14 +127,19 @@ def load_or_build_vector_store():
         
         text = response.content 
         only_output_block = extract_output_after_removing_think(text) 
-        parsed_json = extract_output_after_removing_think(text, return_json=True)
+
+        clean_text = only_output_block.replace("<output>", "").replace("</output>", "").strip()
+        clean_text = clean_text.replace("]\n}\n", "]\n},\n")
+        clean_text = "[" + clean_text + "]"
 
         vector_db_items = []
-        for idx1, sfr in enumerate(parsed_json):
+        data = json.loads(clean_text)
+        for idx1, sfr in enumerate(data):
             for idx2, detail_sfr in enumerate(sfr['구현항목']):
-                req_id = parsed_json[idx1]['요구사항ID']
+                req_id = data[idx1]['요구사항ID']
                 sub_item_id = detail_sfr['하위ID']
-                str_detail_sft = json.dumps(detail_sfr)
+                #str_detail_sft = json.dumps(detail_sfr)
+                str_detail_sft = str(detail_sfr)
                 # print(req_id)
                 # print(sub_item_id)
                 # print(detail_sfr)
