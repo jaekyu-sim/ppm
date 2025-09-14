@@ -59,7 +59,8 @@ method_summarization_prompt = PromptTemplate.from_template(
 
     **코드 정보:**
     {information}
-    """)
+    """
+)
 
 def summarize_method_function(state:AgentState):
     parsed_methods = state['parsed_methods']
@@ -70,7 +71,20 @@ def summarize_method_function(state:AgentState):
     return result
 
 
+def match_summary_to_requirement(state:AgentState):
 
+    file_list = state['parsed_methods']
+
+    for file_object in file_list:
+
+        for method in file_object.get('method_list', []):
+            summary = method.get('summary')
+            
+            if summary:
+                # RAG retriever를 사용하여 유사한 요구사항 문서를 검색합니다.
+                docs = retriever.invoke(summary)
+                
+    return None
 
 code_interpreter_prompt = PromptTemplate.from_template(
     """
@@ -142,7 +156,7 @@ judge_prompt = PromptTemplate.from_template("""
 당신은 소프트웨어 요구사항 검증 전문가입니다.
 
 [평가 목적]
-- 주어진 "함수 수준 기능 명세(자연어 요약)"가 아래 "요구사항 후보들"을 얼마나 충족하는지 판정하세요.
+- 주어진 \"함수 수준 기능 명세(자연어 요약)\"가 아래 \"요구사항 후보들\"을 얼마나 충족하는지 판정하세요.
 - 판정 기준: 기능/입력/처리/출력/예외 5가지 관점.
 
 [출력 형식]
@@ -150,9 +164,9 @@ judge_prompt = PromptTemplate.from_template("""
 스키마: {schema}
 
 [평가 지침]
-- "충족": 핵심 요구를 대부분 충족하며 잔여 리스크가 경미함
-- "부분충족": 핵심 중 일부가 불명확/누락
-- "미충족": 핵심 요구를 만족하지 못함
+- \"충족\": 핵심 요구를 대부분 충족하며 잔여 리스크가 경미함
+- \"부분충족\": 핵심 중 일부가 불명확/누락
+- \"미충족\": 핵심 요구를 만족하지 못함
 - 점수는 0.0~1.0 (소수 둘째 자리 권장)
 - missing_points에는 구체적 부족 항목을 불릿으로 기입
 - trace.matched_requirement_ids에는 근거가 된 요구사항의 id나 출처를 나열
