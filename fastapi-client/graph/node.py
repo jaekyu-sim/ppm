@@ -159,9 +159,9 @@ code_interpreter_prompt = PromptTemplate.from_template(
 
 
 def code_interpreter(state:AgentState):
-    file_code = state['file_code']
+    regrouped_methods = state['regrouped_methods']
     code_interpreter_result_chain = code_interpreter_prompt | llm | JsonOutputParser()
-    result = code_interpreter_result_chain.invoke({"information": file_code})
+    result = code_interpreter_result_chain.invoke({"information": regrouped_methods})
 
     return {'answer': result}
 
