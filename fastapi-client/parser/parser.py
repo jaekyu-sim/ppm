@@ -13,6 +13,20 @@ class FileParseResult(TypedDict):
     file_name: str
     method_list: List[MethodInfo]
 
+class VariableInfo(TypedDict):
+    path: str
+    name: str
+
+class FileInfo(TypedDict):
+    path_name: str
+    file_name: str
+    method_list: List[MethodInfo]
+    caller_variable: List[VariableInfo]
+
+class RegroupMethodResult(TypedDict):
+    rfp_name: str
+    file_list: List[FileInfo]
+
 def extract_python_methods(code: str) -> List[MethodInfo]:
     """
     주어진 파이썬 코드 문자열에서 모든 함수와 메서드를 추출합니다.
@@ -155,3 +169,17 @@ def extract_java_methods(java_code: str) -> List[MethodInfo]:
             })
             
         return methods
+
+def extract_java_filename(file_path: str) -> str:
+    return file_path.split('/')[-1]
+
+def extract_java_path(file_path: str) -> str:
+    # 패키지 경로 추출
+    # 'src/main/java/' 이후 경로를 사용하여 '.' 으로 연결
+    java_root = 'src/main/java/'
+    idx = file_path.find(java_root)
+    package_path = file_path[idx + len(java_root):-len('.java')] if idx != -1 else ''
+    package_parts = package_path.split('/')
+    class_name = package_parts[-1]
+    package_name = '.'.join(package_parts[:-1] + [class_name])
+    return package_name
