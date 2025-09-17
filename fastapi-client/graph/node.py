@@ -26,8 +26,12 @@ method_summarization_prompt = PromptTemplate.from_template(
     3. `summary`는 반드시 **상세 요구사항과 매칭될 것을 고려**하여, 메서드의 기술적 구현 방식보다는 **비즈니스 로직과 목적**이 명확히 드러나도록 작성해야 합니다. (예: "DB에서 데이터를 가져온다" (X) -> "사용자의 프로필 정보를 조회한다" (O))
     4. 응답은 오직 JSON 이어야 하며, 다른 어떤 설명도 포함해서는 안 됩니다.
 
-    **출력 예시 :**
-    ```json
+    **코드 정보:**
+    {information}
+    
+    이제 위의 `코드 정보`를 분석하여, 위의 규칙과 예시를 반드시 준수하는 **JSON 배열**을 생성하세요.
+
+    **JSON 배열 출력 예시 :**
     {{ "parsed_methods": [
         {{
             "file_name": "OrderController.java",
@@ -53,13 +57,6 @@ method_summarization_prompt = PromptTemplate.from_template(
         }}
     ]
     }}
-    ```
-    ---
-
-    이제 아래 `코드 정보`를 분석하여, 위의 규칙과 예시를 반드시 준수하는 **JSON 배열**을 생성하세요.
-
-    **코드 정보:**
-    {information}
     """
 )
 

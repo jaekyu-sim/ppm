@@ -53,6 +53,26 @@ X-GitHub-Event: pull_request
   }
 }
 
+### SFR-113 기능 개발 (PR #3)
+POST http://localhost:8000/webhook
+Content-Type: application/json
+X-GitHub-Event: pull_request
+
+{
+  "pr_comment_send" : false,
+  "number": 3,
+  "pull_request": {
+    "head": {
+      "sha": "ff4615e05d07492b979dda1e999bd053ad319f12"
+    }
+  },
+  "repository": {
+    "full_name": "HorangApple/sports-portal"
+  }
+}
+
+
+
 ### 파일 변경점 52개 케이스 (PR #2)
 ### LLM 개선 전까지는 테스트 금지
 POST http://localhost:8000/webhook
