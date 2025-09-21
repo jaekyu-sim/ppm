@@ -10,7 +10,16 @@ import ast
 
 
 vector_store, _embeddings = load_or_build_vector_store()
-retriever = vector_store.as_retriever(search_kwargs={'k': 3})
+# 원래는 아래 한줄.
+#retriever = vector_store.as_retriever(search_kwargs={'k': 3})
+
+# rerank 적용하면 아래 내용.
+# 초기 후보 많이
+base_retriever = vector_store.as_retriever(search_kwargs={'k': 3})
+
+from reranker_ollama import OllamaBGERerankRetriever, ollama_bge_rerank
+retriever = OllamaBGERerankRetriever(base_retriever=base_retriever, k_init=3, k_final=2)
+
 llm = ChatOllama(model="qwen3:4b", temperature=0.2, format="json")
 
 
@@ -83,7 +92,14 @@ def match_summary_to_requirement(state:AgentState):
             score = 0.0
             
             if summary:
-                scored_docs = vector_store.similarity_search_with_score(summary, k=3)
+                # rerank 포인트2
+                # 아래 한줄 주석.
+                #scored_docs = vector_store.similarity_search_with_score(summary, k=3)
+
+                # 아래 추가.
+                candidates_with_score = vector_store.similarity_search_with_score(summary, k=3)
+                candidates = [doc for doc, _ in candidates_with_score]
+                scored_docs = ollama_bge_rerank(summary, candidates, top_n=1)
                 
                 if scored_docs:
                     top_doc, score = scored_docs[0]
@@ -220,9 +236,11 @@ def compare_to_rfp(state:AgentState):
         return "\n".join(lines)
 
     def judge_one_func(func_label, func_text, retriever, llm):
-        # 1) 검색
+        # 1-1) 검색
         docs = retriever.invoke(func_text)
         req_block = build_requirements_block(docs)
+
+        # rerank 포인트1
 
         # 2) LLM 판정
         chain = judge_prompt | llm | JsonOutputParser()
