@@ -73,9 +73,14 @@ def summarize_method_function(state:AgentState):
     parsed_methods = state['parsed_methods']
 
     summarize_method_chain = method_summarization_prompt | llm | JsonOutputParser()
-    result = summarize_method_chain.invoke({"information": parsed_methods})
 
-    return result
+    all_summaries = []
+    for file_object in parsed_methods:
+        result = summarize_method_chain.invoke({"information": [file_object]})
+        if result and result.get("parsed_methods"):
+            all_summaries.extend(result.get("parsed_methods"))
+
+    return {"parsed_methods": all_summaries}
 
 
 def match_summary_to_requirement(state:AgentState):
@@ -117,6 +122,8 @@ def match_summary_to_requirement(state:AgentState):
                         requirement_content = top_doc.page_content
             
             method['rfp_number'] = rfp_number
+            method['score'] = score
+            method['requirement_content'] = requirement_content
 
             print(
                 f"[File: {file_object['file_name']}]\n"
