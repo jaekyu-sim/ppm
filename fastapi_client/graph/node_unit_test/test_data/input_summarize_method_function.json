@@ -1,0 +1,234 @@
+{
+  "file_code": [
+    {
+      "file_name": "backend/src/main/java/com/example/course/controller/CourseBookmarkController.java",
+      "code": "package com.example.course.controller;\n\nimport com.example.course.dto.CourseResponse;\nimport com.example.course.service.CourseBookmarkService;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.data.domain.Page;\nimport org.springframework.data.domain.Pageable;\nimport org.springframework.http.ResponseEntity;\nimport org.springframework.security.core.Authentication;\nimport org.springframework.security.core.userdetails.UserDetails;\nimport org.springframework.web.bind.annotation.*;\n\nimport java.util.List;\nimport java.util.Map;\n\n/**\n * 과정 즐겨찾기 관련 API를 제공하는 컨트롤러\n */\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \n@RestController\n@RequestMapping(\"/api/v1/bookmarks\")\n@RequiredArgsConstructor\npublic class CourseBookmarkController {\n\n    private final CourseBookmarkService bookmarkService;\n\n    /**\n     * 현재 사용자의 즐겨찾기 과정 목록 조회\n     * @param authentication 인증 정보\n     * @return 즐겨찾기한 과정 목록\n     */\n    @GetMapping(\"/courses\")\n    public ResponseEntity<List<CourseResponse>> getUserBookmarkedCourses(Authentication authentication) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        List<CourseResponse> bookmarkedCourses = bookmarkService.getUserBookmarkedCourses(userId);\n        return ResponseEntity.ok(bookmarkedCourses);\n    }\n\n    /**\n     * 현재 사용자의 즐겨찾기 과정 목록 페이징 조회\n     * @param authentication 인증 정보\n     * @param pageable 페이징 정보\n     * @return 즐겨찾기한 과정 페이지\n     */\n    @GetMapping(\"/courses/paged\")\n    public ResponseEntity<Page<CourseResponse>> getUserBookmarkedCoursesPaged(\n            Authentication authentication,\n            Pageable pageable) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        Page<CourseResponse> bookmarkedCourses = bookmarkService.getUserBookmarkedCourses(userId, pageable);\n        return ResponseEntity.ok(bookmarkedCourses);\n    }\n\n    /**\n     * 과정 즐겨찾기 추가\n     * @param authentication 인증 정보\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 추가 결과\n     */\n    @PostMapping(\"/courses/{courseId}\")\n    public ResponseEntity<Map<String, Object>> addBookmark(\n            Authentication authentication,\n            @PathVariable Long courseId) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        boolean added = bookmarkService.addBookmark(userId, courseId);\n        \n        if (added) {\n            return ResponseEntity.ok(Map.of(\n                \"success\", true,\n                \"message\", \"과정이 즐겨찾기에 추가되었습니다.\",\n                \"courseId\", courseId\n            ));\n        } else {\n            return ResponseEntity.ok(Map.of(\n                \"success\", false,\n                \"message\", \"이미 즐겨찾기에 추가된 과정입니다.\",\n                \"courseId\", courseId\n            ));\n        }\n    }\n\n    /**\n     * 과정 즐겨찾기 삭제\n     * @param authentication 인증 정보\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 삭제 결과\n     */\n    @DeleteMapping(\"/courses/{courseId}\")\n    public ResponseEntity<Map<String, Object>> removeBookmark(\n            Authentication authentication,\n            @PathVariable Long courseId) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        boolean removed = bookmarkService.removeBookmark(userId, courseId);\n        \n        if (removed) {\n            return ResponseEntity.ok(Map.of(\n                \"success\", true,\n                \"message\", \"과정이 즐겨찾기에서 제거되었습니다.\",\n                \"courseId\", courseId\n            ));\n        } else {\n            return ResponseEntity.ok(Map.of(\n                \"success\", false,\n                \"message\", \"즐겨찾기에 없는 과정입니다.\",\n                \"courseId\", courseId\n            ));\n        }\n    }\n\n    /**\n     * 과정 즐겨찾기 상태 확인\n     * @param authentication 인증 정보\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 여부\n     */\n    @GetMapping(\"/courses/{courseId}/status\")\n    public ResponseEntity<Map<String, Object>> checkBookmarkStatus(\n            Authentication authentication,\n            @PathVariable Long courseId) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        boolean isBookmarked = bookmarkService.isBookmarked(userId, courseId);\n        \n        return ResponseEntity.ok(Map.of(\n            \"isBookmarked\", isBookmarked,\n            \"courseId\", courseId\n        ));\n    }\n\n    /**\n     * 사용자의 즐겨찾기 과정 수 조회\n     * @param authentication 인증 정보\n     * @return 즐겨찾기 과정 수\n     */\n    @GetMapping(\"/count\")\n    public ResponseEntity<Map<String, Object>> countUserBookmarks(Authentication authentication) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        long bookmarkCount = bookmarkService.countUserBookmarks(userId);\n        \n        return ResponseEntity.ok(Map.of(\n            \"count\", bookmarkCount\n        ));\n    }\n} "
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/dto/CourseResponse.java",
+      "code": "package com.example.course.dto;\n\nimport com.example.course.entity.Course;\nimport lombok.Builder;\nimport lombok.Getter;\nimport lombok.NoArgsConstructor;\n\nimport java.time.LocalDateTime;\n\n/**\n * 교육 과정 정보 응답을 위한 DTO\n */\n\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \n\n@Getter\n@NoArgsConstructor\npublic class CourseResponse {\n    /**\n     * 과정 고유 ID\n     */\n    private Long id;\n\n    /**\n     * 과정 코드\n     */\n    private String code;\n\n    /**\n     * 과정명\n     */\n    private String name;\n\n    /**\n     * 과정 설명\n     */\n    private String description;\n\n    /**\n     * 학습 목표\n     */\n    private String learningObjectives;\n\n    /**\n     * 총 소요 시간(분)\n     */\n    private Integer totalMinutes;\n\n    /**\n     * 최대 수강 인원\n     */\n    private Integer maxEnrollment;\n\n    /**\n     * 최소 수강 인원\n     */\n    private Integer minEnrollment;\n\n    /**\n     * 활성화 여부\n     */\n    private boolean active;\n\n    /**\n     * 카테고리 ID\n     */\n    private Long categoryId;\n\n    /**\n     * 카테고리명\n     */\n    private String categoryName;\n\n    /**\n     * 과정 유형 ID\n     */\n    private Long typeId;\n\n    /**\n     * 과정 유형명\n     */\n    private String typeName;\n\n    /**\n     * 생성 일시\n     */\n    private LocalDateTime createdAt;\n\n    /**\n     * 수정 일시\n     */\n    private LocalDateTime updatedAt;\n\n    @Builder\n    private CourseResponse(Long id, String code, String name, String description,\n                          String learningObjectives, Integer totalMinutes,\n                          Integer maxEnrollment, Integer minEnrollment, boolean active,\n                          Long categoryId, String categoryName, Long typeId, String typeName,\n                          LocalDateTime createdAt, LocalDateTime updatedAt) {\n        this.id = id;\n        this.code = code;\n        this.name = name;\n        this.description = description;\n        this.learningObjectives = learningObjectives;\n        this.totalMinutes = totalMinutes;\n        this.maxEnrollment = maxEnrollment;\n        this.minEnrollment = minEnrollment;\n        this.active = active;\n        this.categoryId = categoryId;\n        this.categoryName = categoryName;\n        this.typeId = typeId;\n        this.typeName = typeName;\n        this.createdAt = createdAt;\n        this.updatedAt = updatedAt;\n    }\n\n    /**\n     * Course 엔티티를 CourseResponse DTO로 변환\n     */\n    public static CourseResponse from(Course course) {\n        return CourseResponse.builder()\n                .id(course.getId())\n                .code(course.getCode())\n                .name(course.getName())\n                .description(course.getDescription())\n                .learningObjectives(course.getLearningObjectives())\n                .totalMinutes(course.getTotalMinutes())\n                .maxEnrollment(course.getMaxEnrollment())\n                .minEnrollment(course.getMinEnrollment())\n                .active(course.isActive())\n                .categoryId(course.getCategory() != null ? course.getCategory().getId() : null)\n                .categoryName(course.getCategory() != null ? course.getCategory().getName() : null)\n                .typeId(course.getType() != null ? course.getType().getId() : null)\n                .typeName(course.getType() != null ? course.getType().getName() : null)\n                .createdAt(course.getCreatedAt())\n                .updatedAt(course.getUpdatedAt())\n                .build();\n    }\n} "
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/entity/Course.java",
+      "code": "package com.example.course.entity;\n\nimport com.example.common.entity.BaseTimeEntity;\nimport jakarta.persistence.*;\nimport lombok.*;\n\nimport java.util.ArrayList;\nimport java.util.List;\n\n/**\n * 교육과정 엔티티\n * 교육과정의 기본 정보를 관리\n */\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \n@Entity\n@Table(name = \"courses\")\n@Getter\n@Setter\n@NoArgsConstructor\n@AllArgsConstructor\n@Builder\npublic class Course extends BaseTimeEntity {\n\n    @Id\n    @GeneratedValue(strategy = GenerationType.IDENTITY)\n    private Long id;\n\n    // 기존에 없던 레벨 컬럼 추가 25.09.16\n    @Column(nullable = false, length = 30)\n    private String courseLevel;\n\n    // 기존에 없던 강사정보 컬럼 추가 25.09.16\n    @Column(nullable = false,  length = 30)\n    private String instructorInfo;\n\n    /**\n     * 과정 코드\n     */\n    @Column(nullable = false, unique = true, length = 30)\n    private String code;\n\n    /**\n     * 과정명\n     */\n    @Column(nullable = false, length = 200)\n    private String name;\n\n    /**\n     * 과정 설명\n     */\n    @Column(length = 2000)\n    private String description;\n\n    /**\n     * 과정 학습 목표\n     */\n    @Column(length = 1000)\n    private String learningObjectives;\n\n    /**\n     * 총 교육 시간 (분 단위)\n     */\n    private Integer totalMinutes;\n\n    /**\n     * 활성화 여부\n     */\n    @Column(nullable = false)\n    private boolean active = true;\n\n    /**\n     * 최대 수강 인원\n     */\n    private Integer maxEnrollment;\n\n    /**\n     * 최소 수강 인원\n     */\n    private Integer minEnrollment;\n\n    /**\n     * 과정 유형\n     */\n    @ManyToOne(fetch = FetchType.LAZY)\n    @JoinColumn(name = \"type_id\")\n    private CourseType type;\n\n    /**\n     * 과정 카테고리\n     */\n    @ManyToOne(fetch = FetchType.LAZY)\n    @JoinColumn(name = \"category_id\")\n    private CourseCategory category;\n\n    /**\n     * 교육 차수/기수 목록\n     */\n    @OneToMany(mappedBy = \"course\")\n    @Builder.Default\n    private List<CourseSession> sessions = new ArrayList<>();\n\n    /**\n     * 총 등록된 수강생 수\n     */\n    private int enrollmentCount = 0;\n\n    /**\n     * 수강생 등록 시 수강생 수 증가\n     */\n    public void incrementEnrollmentCount() {\n        this.enrollmentCount++;\n    }\n\n    /**\n     * 수강생 취소 시 수강생 수 감소\n     */\n    public void decrementEnrollmentCount() {\n        if (this.enrollmentCount > 0) {\n            this.enrollmentCount--;\n        }\n    }\n} "
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/repository/CourseBookmarkRepository.java",
+      "code": "package com.example.course.repository;\n\nimport com.example.course.entity.Course;\nimport com.example.course.entity.CourseBookmark;\nimport com.example.user.entity.User;\nimport org.springframework.data.domain.Page;\nimport org.springframework.data.domain.Pageable;\nimport org.springframework.data.jpa.repository.JpaRepository;\nimport org.springframework.stereotype.Repository;\n\nimport java.util.List;\nimport java.util.Optional;\n\n/**\n * 과정 즐겨찾기 관련 데이터 액세스를 위한 리포지토리\n */\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \n@Repository\npublic interface CourseBookmarkRepository extends JpaRepository<CourseBookmark, Long> {\n\n    /**\n     * 사용자가 즐겨찾기한 과정 북마크 목록 조회\n     * @param user 사용자\n     * @return 북마크 목록\n     */\n    List<CourseBookmark> findByUser(User user);\n    \n    /**\n     * 사용자가 즐겨찾기한 과정 북마크 목록 페이징 조회\n     * @param user 사용자\n     * @param pageable 페이징 정보\n     * @return 북마크 페이지\n     */\n    Page<CourseBookmark> findByUser(User user, Pageable pageable);\n    \n    /**\n     * 특정 사용자의 특정 과정 북마크 조회\n     * @param user 사용자\n     * @param course 과정\n     * @return 북마크 (Optional)\n     */\n    Optional<CourseBookmark> findByUserAndCourse(User user, Course course);\n    \n    /**\n     * 특정 사용자가 특정 과정을 즐겨찾기했는지 확인\n     * @param user 사용자\n     * @param course 과정\n     * @return 즐겨찾기 여부\n     */\n    boolean existsByUserAndCourse(User user, Course course);\n    \n    /**\n     * 특정 사용자의 즐겨찾기 과정 수 조회\n     * @param user 사용자\n     * @return 즐겨찾기 과정 수\n     */\n    long countByUser(User user);\n    \n    /**\n     * 특정 과정을 즐겨찾기한 수 조회\n     * @param course 과정\n     * @return 즐겨찾기 수\n     */\n    long countByCourse(Course course);\n    \n    /**\n     * 특정 사용자의 북마크 삭제\n     * @param user 사용자\n     * @param course 과정\n     */\n    void deleteByUserAndCourse(User user, Course course);\n} "
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/repository/CourseRepository.java",
+      "code": "package com.example.course.repository;\n\nimport com.example.course.entity.Course;\nimport org.springframework.data.jpa.repository.JpaRepository;\nimport org.springframework.stereotype.Repository;\n\nimport java.util.List;\nimport java.util.Optional;\n\n/**\n * 교육과정 Repository\n */\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \n@Repository\npublic interface CourseRepository extends JpaRepository<Course, Long> {\n    \n    /**\n     * 코드로 교육과정 조회\n     * \n     * @param code 교육과정 코드\n     * @return 교육과정 Optional 객체\n     */\n    Optional<Course> findByCode(String code);\n    \n    /**\n     * 활성화된 교육과정 목록 조회\n     * \n     * @return 활성화된 교육과정 목록\n     */\n    List<Course> findByActiveTrue();\n    \n    /**\n     * 카테고리별 교육과정 목록 조회\n     * \n     * @param categoryId 카테고리 ID\n     * @return 해당 카테고리에 속한 교육과정 목록\n     */\n    List<Course> findByCategoryId(Long categoryId);\n    \n    /**\n     * 교육과정 유형별 교육과정 목록 조회\n     * \n     * @param typeId 교육과정 유형 ID\n     * @return 해당 유형의 교육과정 목록\n     */\n    List<Course> findByTypeId(Long typeId);\n    \n    /**\n     * 수강생 수 기준 인기 과정 조회 (활성화된 과정만)\n     */\n    List<Course> findByActiveTrueOrderByEnrollmentCountDesc();\n    \n    /**\n     * 최신 과정 조회 (생성일 기준, 활성화된 과정만)\n     */\n    List<Course> findByActiveTrueOrderByCreatedAtDesc();\n    \n    /**\n     * 특정 카테고리 목록에 속한 활성화된 과정 목록 조회\n     */\n    List<Course> findByCategoryIdInAndActiveTrue(List<Long> categoryIds);\n} "
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/service/CourseBookmarkService.java",
+      "code": "package com.example.course.service;\n\nimport com.example.common.exception.EntityNotFoundException;\nimport com.example.course.dto.CourseResponse;\nimport com.example.course.entity.Course;\nimport com.example.course.entity.CourseBookmark;\nimport com.example.course.repository.CourseBookmarkRepository;\nimport com.example.course.repository.CourseRepository;\nimport com.example.user.entity.User;\nimport com.example.user.repository.UserRepository;\nimport lombok.RequiredArgsConstructor;\nimport org.springframework.data.domain.Page;\nimport org.springframework.data.domain.Pageable;\nimport org.springframework.stereotype.Service;\nimport org.springframework.transaction.annotation.Transactional;\n\nimport java.util.List;\nimport java.util.stream.Collectors;\n\n/**\n * 과정 즐겨찾기 관련 비즈니스 로직을 처리하는 서비스\n */\n\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \n\n@Service\n@RequiredArgsConstructor\n@Transactional(readOnly = true)\npublic class CourseBookmarkService {\n\n    private final CourseBookmarkRepository bookmarkRepository;\n    private final CourseRepository courseRepository;\n    private final UserRepository userRepository;\n\n    /**\n     * 사용자의 즐겨찾기 과정 목록 조회\n     * @param userId 사용자 ID\n     * @return 즐겨찾기한 과정 목록\n     */\n    public List<CourseResponse> getUserBookmarkedCourses(Long userId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        return bookmarkRepository.findByUser(user).stream()\n                .map(bookmark -> CourseResponse.from(bookmark.getCourse()))\n                .collect(Collectors.toList());\n    }\n\n    /**\n     * 사용자의 즐겨찾기 과정 목록 페이징 조회\n     * @param userId 사용자 ID\n     * @param pageable 페이징 정보\n     * @return 즐겨찾기한 과정 페이지\n     */\n    public Page<CourseResponse> getUserBookmarkedCourses(Long userId, Pageable pageable) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        return bookmarkRepository.findByUser(user, pageable)\n                .map(bookmark -> CourseResponse.from(bookmark.getCourse()));\n    }\n\n    /**\n     * 과정 즐겨찾기 추가\n     * @param userId 사용자 ID\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 성공 여부\n     */\n    @Transactional\n    public boolean addBookmark(Long userId, Long courseId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        Course course = courseRepository.findById(courseId)\n                .orElseThrow(() -> new EntityNotFoundException(\"과정을 찾을 수 없습니다. ID: \" + courseId));\n\n        // 이미 즐겨찾기한 경우 중복 저장 방지\n        if (bookmarkRepository.existsByUserAndCourse(user, course)) {\n            return false;\n        }\n\n        CourseBookmark bookmark = CourseBookmark.builder()\n                .user(user)\n                .course(course)\n                .build();\n\n        bookmarkRepository.save(bookmark);\n        return true;\n    }\n\n    /**\n     * 과정 즐겨찾기 삭제\n     * @param userId 사용자 ID\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 삭제 성공 여부\n     */\n    @Transactional\n    public boolean removeBookmark(Long userId, Long courseId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        Course course = courseRepository.findById(courseId)\n                .orElseThrow(() -> new EntityNotFoundException(\"과정을 찾을 수 없습니다. ID: \" + courseId));\n\n        // 즐겨찾기가 존재하는 경우에만 삭제\n        if (!bookmarkRepository.existsByUserAndCourse(user, course)) {\n            return false;\n        }\n\n        bookmarkRepository.deleteByUserAndCourse(user, course);\n        return true;\n    }\n\n    /**\n     * 특정 과정이 즐겨찾기되었는지 확인\n     * @param userId 사용자 ID\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 여부\n     */\n    public boolean isBookmarked(Long userId, Long courseId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        Course course = courseRepository.findById(courseId)\n                .orElseThrow(() -> new EntityNotFoundException(\"과정을 찾을 수 없습니다. ID: \" + courseId));\n\n        return bookmarkRepository.existsByUserAndCourse(user, course);\n    }\n\n    /**\n     * 사용자의 즐겨찾기 과정 수 조회\n     * @param userId 사용자 ID\n     * @return 즐겨찾기 과정 수\n     */\n    public long countUserBookmarks(Long userId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        return bookmarkRepository.countByUser(user);\n    }\n} "
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/user/entity/User.java",
+      "code": "package com.example.user.entity;\n\nimport com.example.common.entity.BaseTimeEntity;\nimport jakarta.persistence.*;\nimport lombok.*;\nimport org.springframework.security.core.GrantedAuthority;\nimport org.springframework.security.core.authority.SimpleGrantedAuthority;\nimport org.springframework.security.core.userdetails.UserDetails;\n\nimport java.time.LocalDateTime;\nimport java.util.Collection;\nimport java.util.List;\n\n/**\n * 사용자 엔티티 클래스\n * Spring Security의 UserDetails 인터페이스를 구현하여 인증에 사용\n * 사용자의 기본 정보와 인증 관련 정보를 관리\n */\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \n@Entity\n@Getter\n@NoArgsConstructor(access = AccessLevel.PROTECTED)\n@Table(name = \"users\")\npublic class User extends BaseTimeEntity implements UserDetails {\n\n    /**\n     * 사용자 고유 식별자\n     */\n    @Id\n    @GeneratedValue(strategy = GenerationType.IDENTITY)\n    private Long id;\n\n    /**\n     * 사용자 이메일 (로그인 ID로 사용)\n     */\n    @Column(nullable = false, unique = true)\n    private String email;\n\n    /**\n     * 사용자 비밀번호 (암호화되어 저장)\n     */\n    @Column(nullable = false)\n    private String password;\n\n    /**\n     * 사용자 이름\n     */\n    @Column(nullable = false)\n    private String name;\n\n    /**\n     * 사용자 역할 (권한)\n     */\n    @Column(nullable = false)\n    @Enumerated(EnumType.STRING)\n    private UserRole role;\n\n    /**\n     * 계정 활성화 여부\n     */\n    @Column(nullable = false)\n    private boolean enabled = true;\n\n    /**\n     * 사용자 생성자\n     * @param email 사용자 이메일\n     * @param password 사용자 비밀번호\n     * @param name 사용자 이름\n     * @param role 사용자 역할\n     */\n    @Builder\n    public User(String email, String password, String name, UserRole role) {\n        this.email = email;\n        this.password = password;\n        this.name = name;\n        this.role = role;\n    }\n\n    /**\n     * 사용자의 권한 목록을 반환\n     * @return 사용자의 권한 목록\n     */\n    @Override\n    public Collection<? extends GrantedAuthority> getAuthorities() {\n        return List.of(new SimpleGrantedAuthority(role.name()));\n    }\n\n    /**\n     * 사용자의 로그인 ID를 반환 (이메일 사용)\n     * @return 사용자 이메일\n     */\n    @Override\n    public String getUsername() {\n        return email;\n    }\n\n    /**\n     * 계정이 만료되지 않았는지 확인\n     * @return 계정 만료 여부\n     */\n    @Override\n    public boolean isAccountNonExpired() {\n        return true;\n    }\n\n    /**\n     * 계정이 잠겨있지 않은지 확인\n     * @return 계정 잠금 여부\n     */\n    @Override\n    public boolean isAccountNonLocked() {\n        return true;\n    }\n\n    /**\n     * 자격 증명이 만료되지 않았는지 확인\n     * @return 자격 증명 만료 여부\n     */\n    @Override\n    public boolean isCredentialsNonExpired() {\n        return true;\n    }\n\n    /**\n     * 계정이 활성화되어 있는지 확인\n     * @return 계정 활성화 여부\n     */\n    @Override\n    public boolean isEnabled() {\n        return enabled;\n    }\n\n    /**\n     * 사용자 비밀번호를 업데이트\n     * @param password 새로운 비밀번호\n     */\n    public void updatePassword(String password) {\n        this.password = password;\n    }\n\n    /**\n     * 사용자 계정을 비활성화\n     */\n    public void disable() {\n        this.enabled = false;\n    }\n} "
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/user/repository/UserRepository.java",
+      "code": "package com.example.user.repository;\n\nimport com.example.user.entity.User;\nimport org.springframework.data.jpa.repository.JpaRepository;\n\nimport java.util.Optional;\n\n/**\n * 사용자 엔티티에 대한 데이터 접근을 처리하는 리포지토리\n */\n// SFR-113 : 강의 즐겨찾기 기능 Test Case\n//   **즐겨찾기 편집 및 등록**\n//    - 즐겨찾기에 대한 조회, 추가, 삭제 기능 제공(O)\n//   **즐겨찾기한 강의에 대한 간략한 정보 조회**\n//    - 강의 기간, 레벨, 강사 정보 등을 간략하게 조회할 수 있는 정보 제공\n//  \npublic interface UserRepository extends JpaRepository<User, Long> {\n    \n    /**\n     * 이메일로 사용자를 조회\n     * @param email 조회할 사용자의 이메일\n     * @return Optional로 감싼 User 객체\n     */\n    Optional<User> findByEmail(String email);\n    \n    /**\n     * 이메일이 존재하는지 확인\n     * @param email 확인할 이메일\n     * @return 존재하면 true, 아니면 false\n     */\n    boolean existsByEmail(String email);\n} "
+    }
+  ],
+  "parsed_methods": [
+    {
+      "file_name": "backend/src/main/java/com/example/course/controller/CourseBookmarkController.java",
+      "method_list": [
+        {
+          "method_name": "getUserBookmarkedCourses",
+          "method_code": "\n    /**\n     * 현재 사용자의 즐겨찾기 과정 목록 조회\n     * @param authentication 인증 정보\n     * @return 즐겨찾기한 과정 목록\n     */\n    @GetMapping(\"/courses\")\n    public ResponseEntity<List<CourseResponse>> getUserBookmarkedCourses(Authentication authentication) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        List<CourseResponse> bookmarkedCourses = bookmarkService.getUserBookmarkedCourses(userId);\n        return ResponseEntity.ok(bookmarkedCourses);\n    }"
+        },
+        {
+          "method_name": "getUserBookmarkedCoursesPaged",
+          "method_code": "\n    /**\n     * 현재 사용자의 즐겨찾기 과정 목록 페이징 조회\n     * @param authentication 인증 정보\n     * @param pageable 페이징 정보\n     * @return 즐겨찾기한 과정 페이지\n     */\n    @GetMapping(\"/courses/paged\")\n    public ResponseEntity<Page<CourseResponse>> getUserBookmarkedCoursesPaged(\n            Authentication authentication,\n            Pageable pageable) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        Page<CourseResponse> bookmarkedCourses = bookmarkService.getUserBookmarkedCourses(userId, pageable);\n        return ResponseEntity.ok(bookmarkedCourses);\n    }"
+        },
+        {
+          "method_name": "addBookmark",
+          "method_code": "\n    /**\n     * 과정 즐겨찾기 추가\n     * @param authentication 인증 정보\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 추가 결과\n     */\n    @PostMapping(\"/courses/{courseId}\")\n    public ResponseEntity<Map<String, Object>> addBookmark(\n            Authentication authentication,\n            @PathVariable Long courseId) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        boolean added = bookmarkService.addBookmark(userId, courseId);\n        \n        if (added) {\n            return ResponseEntity.ok(Map.of(\n                \"success\", true,\n                \"message\", \"과정이 즐겨찾기에 추가되었습니다.\",\n                \"courseId\", courseId\n            ));\n        } else {\n            return ResponseEntity.ok(Map.of(\n                \"success\", false,\n                \"message\", \"이미 즐겨찾기에 추가된 과정입니다.\",\n                \"courseId\", courseId\n            ));\n        }\n    }"
+        },
+        {
+          "method_name": "removeBookmark",
+          "method_code": "\n    /**\n     * 과정 즐겨찾기 삭제\n     * @param authentication 인증 정보\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 삭제 결과\n     */\n    @DeleteMapping(\"/courses/{courseId}\")\n    public ResponseEntity<Map<String, Object>> removeBookmark(\n            Authentication authentication,\n            @PathVariable Long courseId) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        boolean removed = bookmarkService.removeBookmark(userId, courseId);\n        \n        if (removed) {\n            return ResponseEntity.ok(Map.of(\n                \"success\", true,\n                \"message\", \"과정이 즐겨찾기에서 제거되었습니다.\",\n                \"courseId\", courseId\n            ));\n        } else {\n            return ResponseEntity.ok(Map.of(\n                \"success\", false,\n                \"message\", \"즐겨찾기에 없는 과정입니다.\",\n                \"courseId\", courseId\n            ));\n        }\n    }"
+        },
+        {
+          "method_name": "checkBookmarkStatus",
+          "method_code": "\n    /**\n     * 과정 즐겨찾기 상태 확인\n     * @param authentication 인증 정보\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 여부\n     */\n    @GetMapping(\"/courses/{courseId}/status\")\n    public ResponseEntity<Map<String, Object>> checkBookmarkStatus(\n            Authentication authentication,\n            @PathVariable Long courseId) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        boolean isBookmarked = bookmarkService.isBookmarked(userId, courseId);\n        \n        return ResponseEntity.ok(Map.of(\n            \"isBookmarked\", isBookmarked,\n            \"courseId\", courseId\n        ));\n    }"
+        },
+        {
+          "method_name": "countUserBookmarks",
+          "method_code": "\n    /**\n     * 사용자의 즐겨찾기 과정 수 조회\n     * @param authentication 인증 정보\n     * @return 즐겨찾기 과정 수\n     */\n    @GetMapping(\"/count\")\n    public ResponseEntity<Map<String, Object>> countUserBookmarks(Authentication authentication) {\n        UserDetails userDetails = (UserDetails) authentication.getPrincipal();\n        Long userId = Long.parseLong(userDetails.getUsername());\n        \n        long bookmarkCount = bookmarkService.countUserBookmarks(userId);\n        \n        return ResponseEntity.ok(Map.of(\n            \"count\", bookmarkCount\n        ));\n    }"
+        }
+      ]
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/dto/CourseResponse.java",
+      "method_list": [
+        {
+          "method_name": "from",
+          "method_code": "\n    /**\n     * Course 엔티티를 CourseResponse DTO로 변환\n     */\n    public static CourseResponse from(Course course) {\n        return CourseResponse.builder()\n                .id(course.getId())\n                .code(course.getCode())\n                .name(course.getName())\n                .description(course.getDescription())\n                .learningObjectives(course.getLearningObjectives())\n                .totalMinutes(course.getTotalMinutes())\n                .maxEnrollment(course.getMaxEnrollment())\n                .minEnrollment(course.getMinEnrollment())\n                .active(course.isActive())\n                .categoryId(course.getCategory() != null ? course.getCategory().getId() : null)\n                .categoryName(course.getCategory() != null ? course.getCategory().getName() : null)\n                .typeId(course.getType() != null ? course.getType().getId() : null)\n                .typeName(course.getType() != null ? course.getType().getName() : null)\n                .createdAt(course.getCreatedAt())\n                .updatedAt(course.getUpdatedAt())\n                .build();\n    }"
+        }
+      ]
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/entity/Course.java",
+      "method_list": [
+        {
+          "method_name": "incrementEnrollmentCount",
+          "method_code": "\n    /**\n     * 수강생 등록 시 수강생 수 증가\n     */\n    public void incrementEnrollmentCount() {\n        this.enrollmentCount++;\n    }"
+        },
+        {
+          "method_name": "decrementEnrollmentCount",
+          "method_code": "\n    /**\n     * 수강생 취소 시 수강생 수 감소\n     */\n    public void decrementEnrollmentCount() {\n        if (this.enrollmentCount > 0) {\n            this.enrollmentCount--;\n        }\n    }"
+        }
+      ]
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/repository/CourseBookmarkRepository.java",
+      "method_list": [
+        {
+          "method_name": "findByUser",
+          "method_code": "\n    /**\n     * 사용자가 즐겨찾기한 과정 북마크 목록 조회\n     * @param user 사용자\n     * @return 북마크 목록\n     */\n    List<CourseBookmark> findByUser(User user);"
+        },
+        {
+          "method_name": "findByUser",
+          "method_code": "    \n    /**\n     * 사용자가 즐겨찾기한 과정 북마크 목록 페이징 조회\n     * @param user 사용자\n     * @param pageable 페이징 정보\n     * @return 북마크 페이지\n     */\n    Page<CourseBookmark> findByUser(User user, Pageable pageable);"
+        },
+        {
+          "method_name": "findByUserAndCourse",
+          "method_code": "    \n    /**\n     * 특정 사용자의 특정 과정 북마크 조회\n     * @param user 사용자\n     * @param course 과정\n     * @return 북마크 (Optional)\n     */\n    Optional<CourseBookmark> findByUserAndCourse(User user, Course course);"
+        },
+        {
+          "method_name": "existsByUserAndCourse",
+          "method_code": "    \n    /**\n     * 특정 사용자가 특정 과정을 즐겨찾기했는지 확인\n     * @param user 사용자\n     * @param course 과정\n     * @return 즐겨찾기 여부\n     */\n    boolean existsByUserAndCourse(User user, Course course);"
+        },
+        {
+          "method_name": "countByUser",
+          "method_code": "    \n    /**\n     * 특정 사용자의 즐겨찾기 과정 수 조회\n     * @param user 사용자\n     * @return 즐겨찾기 과정 수\n     */\n    long countByUser(User user);"
+        },
+        {
+          "method_name": "countByCourse",
+          "method_code": "    \n    /**\n     * 특정 과정을 즐겨찾기한 수 조회\n     * @param course 과정\n     * @return 즐겨찾기 수\n     */\n    long countByCourse(Course course);"
+        },
+        {
+          "method_name": "deleteByUserAndCourse",
+          "method_code": "    \n    /**\n     * 특정 사용자의 북마크 삭제\n     * @param user 사용자\n     * @param course 과정\n     */\n    void deleteByUserAndCourse(User user, Course course);"
+        }
+      ]
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/repository/CourseRepository.java",
+      "method_list": [
+        {
+          "method_name": "findByCode",
+          "method_code": "    \n    /**\n     * 코드로 교육과정 조회\n     * \n     * @param code 교육과정 코드\n     * @return 교육과정 Optional 객체\n     */\n    Optional<Course> findByCode(String code);"
+        },
+        {
+          "method_name": "findByActiveTrue",
+          "method_code": "    \n    /**\n     * 활성화된 교육과정 목록 조회\n     * \n     * @return 활성화된 교육과정 목록\n     */\n    List<Course> findByActiveTrue();"
+        },
+        {
+          "method_name": "findByCategoryId",
+          "method_code": "    \n    /**\n     * 카테고리별 교육과정 목록 조회\n     * \n     * @param categoryId 카테고리 ID\n     * @return 해당 카테고리에 속한 교육과정 목록\n     */\n    List<Course> findByCategoryId(Long categoryId);"
+        },
+        {
+          "method_name": "findByTypeId",
+          "method_code": "    \n    /**\n     * 교육과정 유형별 교육과정 목록 조회\n     * \n     * @param typeId 교육과정 유형 ID\n     * @return 해당 유형의 교육과정 목록\n     */\n    List<Course> findByTypeId(Long typeId);"
+        },
+        {
+          "method_name": "findByActiveTrueOrderByEnrollmentCountDesc",
+          "method_code": "    \n    /**\n     * 수강생 수 기준 인기 과정 조회 (활성화된 과정만)\n     */\n    List<Course> findByActiveTrueOrderByEnrollmentCountDesc();"
+        },
+        {
+          "method_name": "findByActiveTrueOrderByCreatedAtDesc",
+          "method_code": "    \n    /**\n     * 최신 과정 조회 (생성일 기준, 활성화된 과정만)\n     */\n    List<Course> findByActiveTrueOrderByCreatedAtDesc();"
+        },
+        {
+          "method_name": "findByCategoryIdInAndActiveTrue",
+          "method_code": "    \n    /**\n     * 특정 카테고리 목록에 속한 활성화된 과정 목록 조회\n     */\n    List<Course> findByCategoryIdInAndActiveTrue(List<Long> categoryIds);"
+        }
+      ]
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/course/service/CourseBookmarkService.java",
+      "method_list": [
+        {
+          "method_name": "getUserBookmarkedCourses",
+          "method_code": "\n    /**\n     * 사용자의 즐겨찾기 과정 목록 조회\n     * @param userId 사용자 ID\n     * @return 즐겨찾기한 과정 목록\n     */\n    public List<CourseResponse> getUserBookmarkedCourses(Long userId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        return bookmarkRepository.findByUser(user).stream()\n                .map(bookmark -> CourseResponse.from(bookmark.getCourse()))\n                .collect(Collectors.toList());\n    }"
+        },
+        {
+          "method_name": "getUserBookmarkedCourses",
+          "method_code": "\n    /**\n     * 사용자의 즐겨찾기 과정 목록 페이징 조회\n     * @param userId 사용자 ID\n     * @param pageable 페이징 정보\n     * @return 즐겨찾기한 과정 페이지\n     */\n    public Page<CourseResponse> getUserBookmarkedCourses(Long userId, Pageable pageable) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        return bookmarkRepository.findByUser(user, pageable)\n                .map(bookmark -> CourseResponse.from(bookmark.getCourse()));\n    }"
+        },
+        {
+          "method_name": "addBookmark",
+          "method_code": "\n    /**\n     * 과정 즐겨찾기 추가\n     * @param userId 사용자 ID\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 성공 여부\n     */\n    @Transactional\n    public boolean addBookmark(Long userId, Long courseId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        Course course = courseRepository.findById(courseId)\n                .orElseThrow(() -> new EntityNotFoundException(\"과정을 찾을 수 없습니다. ID: \" + courseId));\n\n        // 이미 즐겨찾기한 경우 중복 저장 방지\n        if (bookmarkRepository.existsByUserAndCourse(user, course)) {\n            return false;\n        }\n\n        CourseBookmark bookmark = CourseBookmark.builder()\n                .user(user)\n                .course(course)\n                .build();\n\n        bookmarkRepository.save(bookmark);\n        return true;\n    }"
+        },
+        {
+          "method_name": "removeBookmark",
+          "method_code": "\n    /**\n     * 과정 즐겨찾기 삭제\n     * @param userId 사용자 ID\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 삭제 성공 여부\n     */\n    @Transactional\n    public boolean removeBookmark(Long userId, Long courseId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        Course course = courseRepository.findById(courseId)\n                .orElseThrow(() -> new EntityNotFoundException(\"과정을 찾을 수 없습니다. ID: \" + courseId));\n\n        // 즐겨찾기가 존재하는 경우에만 삭제\n        if (!bookmarkRepository.existsByUserAndCourse(user, course)) {\n            return false;\n        }\n\n        bookmarkRepository.deleteByUserAndCourse(user, course);\n        return true;\n    }"
+        },
+        {
+          "method_name": "isBookmarked",
+          "method_code": "\n    /**\n     * 특정 과정이 즐겨찾기되었는지 확인\n     * @param userId 사용자 ID\n     * @param courseId 과정 ID\n     * @return 즐겨찾기 여부\n     */\n    public boolean isBookmarked(Long userId, Long courseId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        Course course = courseRepository.findById(courseId)\n                .orElseThrow(() -> new EntityNotFoundException(\"과정을 찾을 수 없습니다. ID: \" + courseId));\n\n        return bookmarkRepository.existsByUserAndCourse(user, course);\n    }"
+        },
+        {
+          "method_name": "countUserBookmarks",
+          "method_code": "\n    /**\n     * 사용자의 즐겨찾기 과정 수 조회\n     * @param userId 사용자 ID\n     * @return 즐겨찾기 과정 수\n     */\n    public long countUserBookmarks(Long userId) {\n        User user = userRepository.findById(userId)\n                .orElseThrow(() -> new EntityNotFoundException(\"사용자를 찾을 수 없습니다. ID: \" + userId));\n\n        return bookmarkRepository.countByUser(user);\n    }"
+        }
+      ]
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/user/entity/User.java",
+      "method_list": [
+        {
+          "method_name": "getAuthorities",
+          "method_code": "\n    /**\n     * 사용자의 권한 목록을 반환\n     * @return 사용자의 권한 목록\n     */\n    @Override\n    public Collection<? extends GrantedAuthority> getAuthorities() {\n        return List.of(new SimpleGrantedAuthority(role.name()));\n    }"
+        },
+        {
+          "method_name": "getUsername",
+          "method_code": "\n    /**\n     * 사용자의 로그인 ID를 반환 (이메일 사용)\n     * @return 사용자 이메일\n     */\n    @Override\n    public String getUsername() {\n        return email;\n    }"
+        },
+        {
+          "method_name": "isAccountNonExpired",
+          "method_code": "\n    /**\n     * 계정이 만료되지 않았는지 확인\n     * @return 계정 만료 여부\n     */\n    @Override\n    public boolean isAccountNonExpired() {\n        return true;\n    }"
+        },
+        {
+          "method_name": "isAccountNonLocked",
+          "method_code": "\n    /**\n     * 계정이 잠겨있지 않은지 확인\n     * @return 계정 잠금 여부\n     */\n    @Override\n    public boolean isAccountNonLocked() {\n        return true;\n    }"
+        },
+        {
+          "method_name": "isCredentialsNonExpired",
+          "method_code": "\n    /**\n     * 자격 증명이 만료되지 않았는지 확인\n     * @return 자격 증명 만료 여부\n     */\n    @Override\n    public boolean isCredentialsNonExpired() {\n        return true;\n    }"
+        },
+        {
+          "method_name": "isEnabled",
+          "method_code": "\n    /**\n     * 계정이 활성화되어 있는지 확인\n     * @return 계정 활성화 여부\n     */\n    @Override\n    public boolean isEnabled() {\n        return enabled;\n    }"
+        },
+        {
+          "method_name": "updatePassword",
+          "method_code": "\n    /**\n     * 사용자 비밀번호를 업데이트\n     * @param password 새로운 비밀번호\n     */\n    public void updatePassword(String password) {\n        this.password = password;\n    }"
+        },
+        {
+          "method_name": "disable",
+          "method_code": "\n    /**\n     * 사용자 계정을 비활성화\n     */\n    public void disable() {\n        this.enabled = false;\n    }"
+        }
+      ]
+    },
+    {
+      "file_name": "backend/src/main/java/com/example/user/repository/UserRepository.java",
+      "method_list": [
+        {
+          "method_name": "findByEmail",
+          "method_code": "    \n    /**\n     * 이메일로 사용자를 조회\n     * @param email 조회할 사용자의 이메일\n     * @return Optional로 감싼 User 객체\n     */\n    Optional<User> findByEmail(String email);"
+        },
+        {
+          "method_name": "existsByEmail",
+          "method_code": "    \n    /**\n     * 이메일이 존재하는지 확인\n     * @param email 확인할 이메일\n     * @return 존재하면 true, 아니면 false\n     */\n    boolean existsByEmail(String email);"
+        }
+      ]
+    }
+  ]
+}
