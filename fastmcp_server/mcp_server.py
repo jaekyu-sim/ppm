@@ -360,8 +360,8 @@ def post_pr_comment(repo_name: str, pr_number: int, body: str) -> dict:
         print(f"An error occurred: {e}")
         return {"resultStatus": "error", "message": str(e)}
 
-# dev : mcp dev ./fastmcp-server/mcp_server.py
-# prd : python ./fastmcp-server/mcp_server.py 
+# dev : mcp dev ./fastmcp_server/mcp_server.py
+# prd : python ./fastmcp_server/mcp_server.py 
 if __name__ == "__main__":
     # 테스트용 코드
     # repo_name="HorangApple/sports-portal"

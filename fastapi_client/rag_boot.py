@@ -30,13 +30,13 @@ llm = ChatOllama(
     model="qwen3:4b"
 )
 
-persist_directory = "./fastapi-client/chroma_db"
+persist_directory = "./fastapi_client/chroma_db"
 collection_name = 'requirements_list'
 
 
 def load_or_build_vector_store():
     print("[DEBUG] cwd       =", Path.cwd())
-    if os.path.exists('./fastapi-client/chroma_db') and len(os.listdir('./fastapi-client/chroma_db')) > 0:
+    if os.path.exists('./fastapi_client/chroma_db') and len(os.listdir('./fastapi_client/chroma_db')) > 0:
         #기존 벡터 DB 가 존재할 경우.
         print("Vector DB 존재. 불러오기 시작.")
         
@@ -50,7 +50,7 @@ def load_or_build_vector_store():
     else:
         print("Vector DB 부재. 생성 시작.")
         # 1. 문서 로드
-        loader = TextLoader("./fastapi-client/docs/RFP_requirements.md", encoding="utf-8")
+        loader = TextLoader("./fastapi_client/docs/RFP_requirements.md", encoding="utf-8")
         documents = loader.load()
 
         # 2. 문서 나누기

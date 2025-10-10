@@ -35,7 +35,7 @@ llm = ChatOllama(
     model="qwen3:4b"
 )
 
-persist_directory = "./fastapi-client/chroma_db"
+persist_directory = "./fastapi_client/chroma_db"
 collection_name = 'requirements_list'
 
 def extract_output_after_removing_think(text: str, return_json=False):
@@ -59,11 +59,11 @@ def extract_output_after_removing_think(text: str, return_json=False):
 
 def load_or_build_vector_store():
     print("[DEBUG] cwd       =", Path.cwd())
-    if os.path.exists('./fastapi-client/chroma_db') and len(os.listdir('./fastapi-client/chroma_db')) > 0:
+    if os.path.exists('./fastapi_client/chroma_db') and len(os.listdir('./fastapi_client/chroma_db')) > 0:
         #기존 벡터 DB 가 존재할 경우.
         print("Vector DB 존재. 불러오기 시작.")
         collection_name = 'requirements_list'
-        persist_directory = "./fastapi-client/chroma_db"
+        persist_directory = "./fastapi_client/chroma_db"
         
         vector_store = Chroma(
             embedding_function=embeddings,
@@ -147,7 +147,7 @@ def load_or_build_vector_store():
                 vector_db_items.append(doc)
 
         # 3. 벡터 스토어 생성
-        persist_directory = "./fastapi-client/chroma_db"
+        persist_directory = "./fastapi_client/chroma_db"
         collection_name = 'requirements_list'
         vector_store = Chroma.from_documents(
             documents=vector_db_items, 

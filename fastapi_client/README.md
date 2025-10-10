@@ -35,7 +35,7 @@ pip install -r requirments.txt
 
 ## 2. 실행 방법
 ```bash
-python fastapi-client/fastapi_server.py
+python fastapi_client/fastapi_server.py
 # FastAPI http://localhost:8000 에서 실행됨
 ```
 

@@ -6,7 +6,7 @@
 
 ## 1. 실행 방법
 ```bash
-mcp dev .\fastmcp-server\mcp_server.py
+mcp dev .\fastmcp_server\mcp_server.py
 # 위 대로 실행 할 경우, 6277 port 로 서비스, 6274 port 로 inspector 가 실행 됨.
 ```
 
