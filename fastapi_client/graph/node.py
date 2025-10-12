@@ -140,15 +140,15 @@ def match_summary_to_requirement(state:AgentState):
 
 code_interpreter_prompt = PromptTemplate.from_template(
     """
-    당신은 Code Review 전문가이며, 주어진 JSON 형식에 따라 출력을 생성하는 기계입니다. 다른 어떤 설명도 없이, 오직 요청된 JSON 형식의 결과물만 생성해야 합니다.
+    당신은 Code Review 전문가이며, 아래의 `information List`에 포함된 모든 항목(each item)을 분석해야 합니다.
+    각 항목마다 하나의 function 객체를 만들어 JSON 배열에 추가하세요.
+    어떤 항목도 생략하지 마세요.
 
-    지금부터 제공해주는 코드 파일들의 기능을 함수 단위로 분석하세요.
-    단순 요약이 아니라, **해당 함수를 개발하기 위해 정의되었을 법한 '요구사항 정의서 수준의 기능 명세'**로 출력하세요.
+    information List:
+    {information}
 
-    information List : {information}
-
-    아래 JSON 스키마에 맞춰서 결과물을 생성하세요. 모든 값은 한글로 작성해야 합니다.
-
+    결과는 아래 JSON 스키마를 따르며, "functions" 배열 안에 각 항목의 분석 결과를 모두 포함해야 합니다.
+    다른 설명 없이 JSON만 출력하세요.
     ```json
     {{
         "functions": [
