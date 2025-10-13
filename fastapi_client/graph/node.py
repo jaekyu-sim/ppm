@@ -1,13 +1,13 @@
-import json
+import ast
+from datetime import datetime
+
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
-#from rag_boot import load_or_build_vector_store
+
+# from rag_boot import load_or_build_vector_store
 from rag_boot_phase2 import load_or_build_vector_store
 from .state import AgentState
-import re
-import ast
-
 
 vector_store, _embeddings = load_or_build_vector_store()
 # 원래는 아래 한줄.
@@ -20,7 +20,7 @@ base_retriever = vector_store.as_retriever(search_kwargs={'k': 3})
 from reranker_ollama import OllamaBGERerankRetriever, ollama_bge_rerank
 retriever = OllamaBGERerankRetriever(base_retriever=base_retriever, k_init=3, k_final=2)
 
-llm = ChatOllama(model="qwen3:4b", temperature=0.2, format="json")
+llm = ChatOllama(model="qwen3:4b-instruct-2507-q8_0", temperature=0.2, format="json")
 
 
 method_summarization_prompt = PromptTemplate.from_template(
@@ -76,9 +76,15 @@ def summarize_method_function(state:AgentState):
 
     all_summaries = []
     for file_object in parsed_methods:
+        start = datetime.now()
+        print(f"[{start}] {file_object['file_name']} 에 대한 summarize 작업 시작")
         result = summarize_method_chain.invoke({"information": [file_object]})
+        end = datetime.now()
         if result and result.get("parsed_methods"):
             all_summaries.extend(result.get("parsed_methods"))
+            print(f"[{end}] 결과에 반영 완료")
+        diff = end-start
+        print(f"[{end}] {file_object['file_name']} 에 대한 summarize 작업 종료 (걸린시간: {diff.seconds}s)")
 
     return {"parsed_methods": all_summaries}
 
@@ -141,11 +147,8 @@ def match_summary_to_requirement(state:AgentState):
 code_interpreter_prompt = PromptTemplate.from_template(
     """
     당신은 Code Review 전문가이며, 아래의 `information List`에 포함된 모든 항목(each item)을 분석해야 합니다.
-    각 항목마다 하나의 function 객체를 만들어 JSON 배열에 추가하세요.
+    각 항목마다 하나의 객체를 만들어 JSON 배열에 추가하세요.
     어떤 항목도 생략하지 마세요.
-
-    information List:
-    {information}
 
     결과는 아래 JSON 스키마를 따르며, "functions" 배열 안에 각 항목의 분석 결과를 모두 포함해야 합니다.
     다른 설명 없이 JSON만 출력하세요.
@@ -173,7 +176,9 @@ code_interpreter_prompt = PromptTemplate.from_template(
         ]
     }}```
 
-    이제 제공된 'information List'를 분석하고, 위의 JSON 형식을 **반드시** 준수하여 결과물을 생성하세요. 다른 말은 절대 추가하지 마세요.
+    이제 다음 제공된 'information List'를 분석하고, 위의 JSON 형식을 **반드시** 준수하여 결과물을 생성하세요. 다른 말은 절대 추가하지 마세요.
+    information List:
+    {information}
     """
 )
 
@@ -277,7 +282,7 @@ def compare_to_rfp(state:AgentState):
         data["requirements_candidates"] = [
             {
                 "id": d.metadata.get("id") or d.metadata.get("source"),
-                "#score": getattr(d, "score", None),
+                # "#score": getattr(d, "score", None), --> 모든 값이 None 으로 나옴
                 "snippet": d.page_content[:300]
             } for d in docs
         ]

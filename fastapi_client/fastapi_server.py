@@ -33,7 +33,7 @@ vector_store, _embeddings = load_or_build_vector_store()
 
 retriever = vector_store.as_retriever(search_kwargs={'k': 1})
 
-llm = ChatOllama(model="qwen3:4b", temperature=0.2)
+llm = ChatOllama(model="qwen3:4b-instruct-2507-q8_0", temperature=0.2)
 
 #req_check_graph = create_req_check_graph(vector_store, llm, top_k=5)
 

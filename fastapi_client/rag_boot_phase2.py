@@ -32,7 +32,7 @@ embeddings = OllamaEmbeddings(
 )
 
 llm = ChatOllama(
-    model="qwen3:4b"
+    model="qwen3:4b-instruct-2507-q8_0"
 )
 
 persist_directory = "./fastapi_client/chroma_db"

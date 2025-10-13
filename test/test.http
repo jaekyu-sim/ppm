@@ -71,6 +71,24 @@ X-GitHub-Event: pull_request
   }
 }
 
+### Test case3 (PR #5)
+POST http://localhost:8000/webhook
+Content-Type: application/json
+X-GitHub-Event: pull_request
+
+{
+  "pr_comment_send" : false,
+  "number": 5,
+  "pull_request": {
+    "head": {
+      "sha": "ff4615e05d07492b979dda1e999bd053ad319f12"
+    }
+  },
+  "repository": {
+    "full_name": "HorangApple/sports-portal"
+  }
+}
+
 
 
 ### 파일 변경점 52개 케이스 (PR #2)
