@@ -1,9 +1,11 @@
-import ast
+import json
 from datetime import datetime
+from typing import List
 
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_ollama import ChatOllama
+from pydantic import BaseModel, Field
 
 # from rag_boot import load_or_build_vector_store
 from rag_boot_phase2 import load_or_build_vector_store
@@ -115,16 +117,17 @@ def match_summary_to_requirement(state:AgentState):
                 if scored_docs:
                     top_doc, score = scored_docs[0]
                     rfp_number = top_doc.metadata.get('list_name', 'N/A')
-                    
+
                     try:
-                        # ast.literal_eval을 사용하여 문자열을 안전하게 Python 객체로 변환
-                        page_content_dict = ast.literal_eval(top_doc.page_content)
+                        # json.loads를 사용하여 표준 JSON 문자열을 파싱
+                        page_content_dict = json.loads(top_doc.page_content)
                         if isinstance(page_content_dict, dict):
-                            requirement_content = page_content_dict.get('내용', 'Content key not found')
+                            # '내용' 키가 없을 때를 대비하여 .get() 사용
+                            requirement_content = page_content_dict.get('내용', top_doc.page_content)
                         else:
                             requirement_content = top_doc.page_content
-                    except (ValueError, SyntaxError):
-                        # 파싱에 실패하면 원본 문자열을 그대로 사용
+                    except (json.JSONDecodeError, TypeError):
+                        # JSON 파싱에 실패하면 원본 문자열을 그대로 사용
                         requirement_content = top_doc.page_content
             
             method['rfp_number'] = rfp_number
@@ -144,39 +147,33 @@ def match_summary_to_requirement(state:AgentState):
 
     return { 'parsed_methods' : file_list }
 
+# 1. 개별 함수 분석 결과를 위한 모델
+class FunctionDetail(BaseModel):
+    """소프트웨어 기능 명세를 담는 구조"""
+    file: str = Field(description="함수가 위치한 파일명")
+    name: str = Field(description="함수의 기능 이름 (예: 사용자 등록 기능)")
+    purpose: str = Field(description="해당 기능의 목적/역할을 설명")
+    input: str = Field(description="기능 수행에 필요한 입력 데이터 항목")
+    processing: str = Field(description="주요 처리 로직/단계 (예: 이메일 중복 검사 → 암호화 → DB 저장)")
+    output: str = Field(description="기능 수행 후 반환되는 결과")
+    exceptions: str = Field(description="발생 가능한 예외 상황 및 처리 내용")
+
+# 2. 전체 결과를 위한 모델
+class CodeAnalysisResult(BaseModel):
+    """Code Interpreter의 최종 분석 결과"""
+    functions: List[FunctionDetail]
+
 code_interpreter_prompt = PromptTemplate.from_template(
-    """
+     """
     당신은 Code Review 전문가이며, 아래의 `information List`에 포함된 모든 항목(each item)을 분석해야 합니다.
-    각 항목마다 하나의 객체를 만들어 JSON 배열에 추가하세요.
-    어떤 항목도 생략하지 마세요.
+    각 항목마다 하나의 객체를 만들어 JSON 배열에 추가하세요. 어떤 항목도 생략하지 마세요.
 
-    결과는 아래 JSON 스키마를 따르며, "functions" 배열 안에 각 항목의 분석 결과를 모두 포함해야 합니다.
-    다른 설명 없이 JSON만 출력하세요.
-    ```json
-    {{
-        "functions": [
-            {{
-                "file": "파일A 명",
-                "name": "사용자 등록 기능",
-                "purpose": "신규 사용자의 정보를 받아 시스템에 계정을 생성해야 한다.",
-                "input": "사용자 이름, 이메일, 비밀번호",
-                "processing": "이메일 중복 여부 검사 → 비밀번호 암호화 → DB 저장",
-                "output": "등록 성공 시 사용자 ID 반환",
-                "exceptions": "이메일 중복 시 오류 메시지 반환"
-            }},
-            {{
-                "file": "파일B 명",
-                "name": "사용자 삭제 기능",
-                "purpose": "특정 사용자의 계정을 시스템에서 제거해야 한다.",
-                "input": "사용자 ID",
-                "processing": "DB 조회 후 계정 삭제,
-                "output": "삭제 성공 여부",
-                "exceptions": "해당 ID가 존재하지 않을 경우 오류 반환"
-            }}
-        ]
-    }}```
+    **출력 형식:**
+    결과는 다음 JSON 스키마를 따르며, "functions" 배열 안에 각 항목의 분석 결과를 모두 포함해야 합니다.
+    다른 설명 없이 이 스키마를 따르는 JSON 객체만 출력하세요.
+    {json_schema}
 
-    이제 다음 제공된 'information List'를 분석하고, 위의 JSON 형식을 **반드시** 준수하여 결과물을 생성하세요. 다른 말은 절대 추가하지 마세요.
+    이제 다음 제공된 'information List'를 분석하고, 위의 JSON 형식을 반드시 준수하여 결과물을 생성하세요.
     information List:
     {information}
     """
@@ -185,10 +182,24 @@ code_interpreter_prompt = PromptTemplate.from_template(
 
 def code_interpreter(state:AgentState):
     regrouped_methods = state['regrouped_methods']
-    code_interpreter_result_chain = code_interpreter_prompt | llm | JsonOutputParser()
-    result = code_interpreter_result_chain.invoke({"information": regrouped_methods})
 
-    return {'answer': result}
+    # Pydantic 스키마의 JSON 버전을 프롬프트에 주입
+    json_schema = CodeAnalysisResult.schema_json(indent=2)
+
+    # 프롬프트 구성
+    filled_prompt = code_interpreter_prompt.partial(json_schema=json_schema)
+
+    # with_structured를 사용하여 LLM의 출력을 CodeAnalysisResult Pydantic 모델에 맞추도록 강제
+    structured_llm = llm.with_structured_output(CodeAnalysisResult)
+
+    # 체인 정의 및 호출
+    code_interpreter_result_chain = filled_prompt | structured_llm
+
+    # 결과는 이미 Pydantic 객체로 파싱됨
+    result_pydantic_object = code_interpreter_result_chain.invoke({"information": regrouped_methods})
+
+    # 필요하다면 딕셔너리로 변환하여 반환
+    return {'answer': result_pydantic_object.model_dump()}
 
 
 judge_schema = """
@@ -232,8 +243,8 @@ judge_prompt = PromptTemplate.from_template("""
 [입력]
 - 함수명/식별자: {func_label}
 - 함수 명세(자연어): {func_text}
-- 요구사항 후보들(Top-{k}): {requirements_block}
-""").partial(schema=judge_schema, k=1)
+- 요구사항 후보들: {requirements_block}
+""").partial(schema=judge_schema)
 
 def compare_to_rfp(state:AgentState):
     result_data = state['answer']
@@ -282,7 +293,6 @@ def compare_to_rfp(state:AgentState):
         data["requirements_candidates"] = [
             {
                 "id": d.metadata.get("id") or d.metadata.get("source"),
-                # "#score": getattr(d, "score", None), --> 모든 값이 None 으로 나옴
                 "snippet": d.page_content[:300]
             } for d in docs
         ]

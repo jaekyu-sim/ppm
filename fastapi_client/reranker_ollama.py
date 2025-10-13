@@ -16,16 +16,18 @@ def get_ollama_bge_m3(model: str = "bge-m3", base_url: str | None = None) -> Oll
 # 간단 캐시(선택)
 _EMBED_CACHE: dict[str, np.ndarray] = {}
 
+# OllamaEmbeddings 인스턴스를 전역으로 한 번만 생성
+_GLOBAL_EMBEDDER = get_ollama_bge_m3()
+
 def _embed(texts: List[str]) -> np.ndarray:
-    emb = get_ollama_bge_m3()
-    vecs = emb.embed_documents(texts)  # shape: [B, D]
+    vecs = _GLOBAL_EMBEDDER.embed_documents(texts)
     return np.asarray(vecs, dtype=np.float32)
 
 def _embed_query(q: str) -> np.ndarray:
     if q in _EMBED_CACHE:
         return _EMBED_CACHE[q]
     emb = get_ollama_bge_m3()
-    v = np.asarray(emb.embed_query(q), dtype=np.float32)
+    v = np.asarray(_GLOBAL_EMBEDDER.embed_query(q), dtype=np.float32)
     _EMBED_CACHE[q] = v
     return v
 
