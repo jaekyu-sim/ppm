@@ -24,6 +24,42 @@ retriever = OllamaBGERerankRetriever(base_retriever=base_retriever, k_init=3, k_
 
 llm = ChatOllama(model="qwen3:4b-instruct-2507-q8_0", temperature=0.2, format="json")
 
+def _find_key_by_words(d, canonical_key):
+    """
+    canonical_key를 구성하는 단어들을 모두 포함하는 키를 딕셔너리에서 찾습니다.
+    대소문자를 무시하고, 찾은 첫 번째 키를 반환합니다.
+    
+    예: canonical_key 'file_name'은 'fileName', 'file_names' 등과 매칭됩니다.
+    """
+    if not isinstance(d, dict):
+        return None
+        
+    constituent_words = [word for word in canonical_key.split('_') if word]
+    if not constituent_words:
+        return None
+
+    for key in d.keys():
+        normalized_key = key.lower()
+        if all(word in normalized_key for word in constituent_words):
+            return key
+            
+    return None
+
+def _get_flexible_value(d, canonical_key, default=None):
+    """
+    구성 단어 매칭을 통해 유연하게 딕셔너리에서 값을 가져옵니다.
+    """
+    if not isinstance(d, dict):
+        return default
+        
+    if canonical_key in d:
+        return d[canonical_key]
+        
+    flexible_key = _find_key_by_words(d, canonical_key)
+    if flexible_key:
+        return d[flexible_key]
+        
+    return default
 
 method_summarization_prompt = PromptTemplate.from_template(
     """당신은 코드의 핵심 기능을 요구사항 관점에서 간결하게 요약하는 전문 SE(Software Engineer)입니다.
@@ -71,24 +107,59 @@ method_summarization_prompt = PromptTemplate.from_template(
     """
 )
 
-def summarize_method_function(state:AgentState):
-    parsed_methods = state['parsed_methods']
-
+def summarize_method_function(state: AgentState):
+    """
+    LLM을 호출하여 각 메서드의 요약(summary)을 생성하고,
+    LLM의 출력이 불안정하더라도 원본 데이터 구조를 유지하며 안전하게 병합합니다.
+    """
+    original_parsed_methods = state['parsed_methods']
     summarize_method_chain = method_summarization_prompt | llm | JsonOutputParser()
 
-    all_summaries = []
-    for file_object in parsed_methods:
-        start = datetime.now()
-        print(f"[{start}] {file_object['file_name']} 에 대한 summarize 작업 시작")
+    # 1. LLM 호출하여 요약 결과 목록 생성
+    llm_results = []
+    for file_object in original_parsed_methods:
         result = summarize_method_chain.invoke({"information": [file_object]})
-        end = datetime.now()
-        if result and result.get("parsed_methods"):
-            all_summaries.extend(result.get("parsed_methods"))
-            print(f"[{end}] 결과에 반영 완료")
-        diff = end-start
-        print(f"[{end}] {file_object['file_name']} 에 대한 summarize 작업 종료 (걸린시간: {diff.seconds}s)")
+        llm_parsed_methods = _get_flexible_value(result, 'parsed_methods')
+        if llm_parsed_methods:
+            llm_results.extend(llm_parsed_methods)
 
-    return {"parsed_methods": all_summaries}
+    # 2. 요약 결과를 빠르게 찾기 위한 조회용 맵 생성 {file_name: {method_name: summary}}
+    summary_map = {}
+    for llm_file_obj in llm_results:
+        file_name = _get_flexible_value(llm_file_obj, 'file_name')
+        if not file_name:
+            continue
+
+        summary_map.setdefault(file_name, {})
+        
+        llm_method_list = _get_flexible_value(llm_file_obj, 'method_list')
+        if not isinstance(llm_method_list, list):
+            continue
+
+        for llm_method_obj in llm_method_list:
+            method_name = _get_flexible_value(llm_method_obj, 'method_name')
+            summary = _get_flexible_value(llm_method_obj, 'summary')
+            if method_name and summary:
+                summary_map[file_name][method_name] = summary
+
+    # 3. 원본 데이터에 요약 정보를 안전하게 병합
+    for original_file in original_parsed_methods:
+        file_name = original_file.get('file_name')
+        if not file_name or file_name not in summary_map:
+            continue
+
+        for original_method in original_file.get('method_list', []):
+            method_name = original_method.get('method_name')
+            if not method_name:
+                continue
+            
+            found_summary = summary_map.get(file_name, {}).get(method_name)
+            if found_summary:
+                original_method['summary'] = found_summary
+            else:
+                original_method.setdefault('summary', '')
+
+    return {"parsed_methods": original_parsed_methods}
 
 
 def match_summary_to_requirement(state:AgentState):
