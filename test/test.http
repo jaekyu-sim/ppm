@@ -96,6 +96,46 @@ X-GitHub-Event: pull_request
 
 
 
+### TEST (PR #5)
+POST http://localhost:8000/webhook
+Content-Type: application/json
+X-GitHub-Event: pull_request
+
+{
+  "pr_comment_send" : true,
+  "number": 5,
+  "pull_request": {
+    "head": {
+      "sha": "445f69cbadab6d6cdd0b9841cb3707e30fc66ff0",
+      "ref": "SFR-113"
+    }
+  },
+  "repository": {
+    "full_name": "HorangApple/sports-portal"
+  }
+}
+
+
+### TEST (PR #10)
+POST http://localhost:8000/webhook
+Content-Type: application/json
+X-GitHub-Event: pull_request
+
+{
+  "pr_comment_send" : true,
+  "number": 10,
+  "pull_request": {
+    "head": {
+      "sha": "907ffad0242ed8e11e46b4e7cf353f259932c498",
+      "ref": "SFR-099"
+    }
+  },
+  "repository": {
+    "full_name": "HorangApple/sports-portal"
+  }
+}
+
+
 ### 파일 변경점 52개 케이스 (PR #2)
 ### LLM 개선 전까지는 테스트 금지
 POST http://localhost:8000/webhook
