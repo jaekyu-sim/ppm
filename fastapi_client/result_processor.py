@@ -47,9 +47,9 @@ def format_compare_result_to_markdown(compare_result: Dict[str, Any]) -> str:
         markdown += f"**충족도**: {decision_text} ({item['total_score']:.2f})\n\n"
         
         scores = item['scores']
-        markdown += "| 기능정합성 | 입력정합성 | 처리정합성 | 출력정합성 | 예외정합성 | 코드위험성 |\n"
-        markdown += "|------------|------------|------------|------------|------------|------------|\n"
-        markdown += f"| {scores.get('기능정합성', 0.0):.2f} | {scores.get('입력정합성', 0.0):.2f} | {scores.get('처리정합성', 0.0):.2f} | {scores.get('출력정합성', 0.0):.2f} | {scores.get('예외정합성', 0.0):.2f} | {scores.get('코드위험성', 0.0):.2f} |\n\n"
+        markdown += "| 기능정합성 | 입력정합성 | 처리정합성 | 출력정합성 |\n"
+        markdown += "|------------|------------|------------|------------|\n"
+        markdown += f"| {scores.get('기능정합성', 0.0):.2f} | {scores.get('입력정합성', 0.0):.2f} | {scores.get('처리정합성', 0.0):.2f} | {scores.get('출력정합성', 0.0):.2f} |\n\n"
 
         markdown += "#### 📝 요구사항 분석\n"
         markdown += "| 항목 | 내용 |\n"
@@ -59,7 +59,6 @@ def format_compare_result_to_markdown(compare_result: Dict[str, Any]) -> str:
         markdown += f"| **입력** | {raw_block.get('input', '')} |\n"
         markdown += f"| **처리** | {raw_block.get('processing', '')} |\n"
         markdown += f"| **출력** | {raw_block.get('output', '')} |\n"
-        markdown += f"| **예외** | {raw_block.get('exceptions', '')} |\n\n"
 
         missing_points = item.get('missing_points', [])
         if missing_points:
