@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Any, Dict
 from urllib.parse import parse_qs
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -78,6 +79,7 @@ async def github_webhook(request: Request):
         repo_full_name = None
         pr_number = None
         commit_sha = None
+        rfp_number = None
 
         commitResult = None
 
@@ -86,7 +88,14 @@ async def github_webhook(request: Request):
 
             repo_full_name = data['repository']['full_name']
             commit_sha = data['head_commit']['id']
-            print(f"Webhook 처리 시작: {repo_full_name}, Commit SHA: {commit_sha}")
+            branch_name = data['ref'].split('/')[-1]
+            rfp_number = branch_name
+            
+            match = re.match(r"^[A-Z]{3}-\d+", branch_name)
+            if match:
+                rfp_number = match.group(0)
+
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Webhook 처리 시작: {repo_full_name}, Commit SHA: {commit_sha}, Branch: {branch_name}, RFP: {rfp_number}")
             
             commitResult = get_commit_changed_files_content(repo_full_name, commit_sha)
 
@@ -96,7 +105,14 @@ async def github_webhook(request: Request):
             repo_full_name = data['repository']['full_name']
             pr_number = data['number']
             commit_sha = data['pull_request']['head']['sha']
-            print(f"Webhook 처리 시작: {repo_full_name}, PR: #{pr_number}, Commit SHA: {commit_sha}")
+            branch_name = data['pull_request']['head']['ref']
+            rfp_number = branch_name
+
+            match = re.match(r"^[A-Z]{3}-\d+", branch_name)
+            if match:
+                rfp_number = match.group(0)
+
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Webhook 처리 시작: {repo_full_name}, PR: #{pr_number}, Commit SHA: {commit_sha}, Branch: {branch_name}, RFP: {rfp_number}")
             
             commitResult = get_pr_changed_files_content(repo_full_name, pr_number)
         
@@ -113,7 +129,7 @@ async def github_webhook(request: Request):
         all_answers = []
         
         graph = create_code_compare_to_rfp_graph()
-        compare_result = graph.invoke({'file_code': file_list})
+        compare_result = graph.invoke({'file_code': file_list, 'tmp_rfp_number': rfp_number})
 
         print("==============================================================")
         print("FINAL RESULT : ", compare_result)
