@@ -227,10 +227,10 @@ if __name__ == "__main__":
     #     # print(f"    Code: {file_data['code'][:100]}...")
     # print("-" * 50)
 
-    print("--- Testing post_pr_comment ---")
-    comment_body = "This is a test comment from the script."
-    result = post_pr_comment(TEST_REPO, TEST_PR_NUMBER, comment_body)
-    print(f"Post comment result: {result}")
-    print("-" * 50)
+    # print("--- Testing post_pr_comment ---")
+    # comment_body = "This is a test comment from the script."
+    # result = post_pr_comment(TEST_REPO, TEST_PR_NUMBER, comment_body)
+    # print(f"Post comment result: {result}")
+    # print("-" * 50)
 
     
