@@ -2,12 +2,15 @@ import os
 import base64
 from typing import List, TypedDict, Optional
 from github import Github
+from github import Auth
 from dotenv import load_dotenv
 import logging
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
+auth = Auth.Token(os.getenv("GITHUB_TOKEN"))
 g = Github(os.getenv("GITHUB_TOKEN"))
+# g = Github(auth=auth)
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +195,7 @@ if __name__ == "__main__":
 
     # Constants for testing
     TEST_REPO = "HorangApple/sports-portal"
-    TEST_PR_NUMBER = 2
+    TEST_PR_NUMBER = 3
     TEST_COMMIT_SHA = "beff35bf72321a4e8cd9aaf4e4b068425ed4e798"
     TEST_BASE_BRANCH = "dev_main"
     TEST_COMPARE_BRANCH = "SFR-113"
@@ -206,20 +209,28 @@ if __name__ == "__main__":
         # print(f"    Code: {file_data['code'][:100]}...")
     print("-" * 50)
 
-    print("--- Testing get_commit_changed_files_content ---")
-    commit_content = get_commit_changed_files_content(TEST_REPO, TEST_COMMIT_SHA)
-    print(f"Commit SHA: {commit_content['sha']}")
-    print(f"Total files in Commit: {len(commit_content['file_list'])}")
-    for file_data in commit_content['file_list']:
-        print(f"  File: {file_data['file_name']}")
-        # print(f"    Code: {file_data['code'][:100]}...")
+    # print("--- Testing get_commit_changed_files_content ---")
+    # commit_content = get_commit_changed_files_content(TEST_REPO, TEST_COMMIT_SHA)
+    # print(f"Commit SHA: {commit_content['sha']}")
+    # print(f"Total files in Commit: {len(commit_content['file_list'])}")
+    # for file_data in commit_content['file_list']:
+    #     print(f"  File: {file_data['file_name']}")
+    #     # print(f"    Code: {file_data['code'][:100]}...")
+    # print("-" * 50)
+
+    # print("--- Testing get_diff_files_content_between_branches ---")
+    # diff_content = get_diff_files_content_between_branches(TEST_REPO, TEST_BASE_BRANCH, TEST_COMPARE_BRANCH)
+    # print(f"Compare Branch SHA: {diff_content['sha']}")
+    # print(f"Total files in Diff: {len(diff_content['file_list'])}")
+    # for file_data in diff_content['file_list']:
+    #     print(f"  File: {file_data['file_name']}")
+    #     # print(f"    Code: {file_data['code'][:100]}...")
+    # print("-" * 50)
+
+    print("--- Testing post_pr_comment ---")
+    comment_body = "This is a test comment from the script."
+    result = post_pr_comment(TEST_REPO, TEST_PR_NUMBER, comment_body)
+    print(f"Post comment result: {result}")
     print("-" * 50)
 
-    print("--- Testing get_diff_files_content_between_branches ---")
-    diff_content = get_diff_files_content_between_branches(TEST_REPO, TEST_BASE_BRANCH, TEST_COMPARE_BRANCH)
-    print(f"Compare Branch SHA: {diff_content['sha']}")
-    print(f"Total files in Diff: {len(diff_content['file_list'])}")
-    for file_data in diff_content['file_list']:
-        print(f"  File: {file_data['file_name']}")
-        # print(f"    Code: {file_data['code'][:100]}...")
-    print("-" * 50)
+    
