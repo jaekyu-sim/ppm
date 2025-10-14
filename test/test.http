@@ -96,13 +96,14 @@ X-GitHub-Event: pull_request
 
 
 
-### TEST (PR #5)
+### TEST (PR #5) : [SFR-113] 파일 9개 변경점
 POST http://localhost:8000/webhook
 Content-Type: application/json
 X-GitHub-Event: pull_request
 
 {
   "pr_comment_send" : true,
+  "pr_comment_debug" : true,
   "number": 5,
   "pull_request": {
     "head": {
@@ -116,13 +117,14 @@ X-GitHub-Event: pull_request
 }
 
 
-### TEST (PR #10)
+### TEST (PR #10) : [SFR-099] TestController.java 파일 1개 변경점
 POST http://localhost:8000/webhook
 Content-Type: application/json
 X-GitHub-Event: pull_request
 
 {
   "pr_comment_send" : true,
+  "pr_comment_debug" : true,
   "number": 10,
   "pull_request": {
     "head": {

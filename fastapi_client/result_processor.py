@@ -1,5 +1,6 @@
 from typing import Any, Dict
-from github_service import post_pr_comment
+import json
+from github_service import post_pr_comment, create_gist
 
 def format_compare_result_to_markdown(compare_result: Dict[str, Any]) -> str:
 
@@ -71,15 +72,52 @@ def format_compare_result_to_markdown(compare_result: Dict[str, Any]) -> str:
 
     return markdown
 
-async def process_code_comparison_result(final_result: Dict[str, Any], repo_full_name: str, pr_comment_send: bool, pr_number: int | None) -> str:
+def format_debug_info(debug_data: Dict[str, Any], repo_full_name: str, pr_number: int) -> str:
+    """
+    디버그 정보를 포맷하고, 원시 데이터를 Gist에 생성한 후 마크다운 문자열을 반환합니다.
+    """
+    debug_markdown = "## 🕵️ 디버그 정보\n\n"
     
+    # 전체 디버그 데이터를 Gist에 생성
+    json_content = json.dumps(debug_data, indent=2, ensure_ascii=False)
+    gist_url = create_gist(
+        file_name=f"pr_{pr_number}_debug_output.json",
+        file_content=json_content,
+        description=f"Debug output for PR #{pr_number} in {repo_full_name}"
+    )
+
+    if gist_url:
+        debug_markdown += f"- **전체 결과 (JSON):** [Gist에서 확인]({gist_url})\n"
+    else:
+        debug_markdown += "- **전체 결과 (JSON):** Gist 생성에 실패했습니다.\n"
+        
+    debug_markdown += "\n---\n\n"
+    return debug_markdown
+
+def process_code_comparison_result(
+    final_result: Dict[str, Any], 
+    repo_full_name: str, 
+    pr_comment_send: bool, 
+    pr_number: int | None,
+    pr_comment_debug: bool = False
+) -> str:
+    
+    debug_markdown = ""
+    # 디버그 모드가 켜져 있으면 디버그 정보를 생성하고 포맷합니다.
+    if pr_comment_debug and pr_number and repo_full_name:
+        debug_markdown = format_debug_info(final_result, repo_full_name, pr_number)
+
     markdown_output = format_compare_result_to_markdown(final_result)
+    
+    # 디버그 마크다운을 메인 출력 앞에 추가합니다.
+    final_markdown = debug_markdown + markdown_output
 
     # PR 코멘트 등록 로직
     if pr_comment_send is True:
         if pr_number and repo_full_name:
-            await post_pr_comment(repo_full_name, pr_number, markdown_output)
+            # 합쳐진 마크다운을 코멘트로 게시합니다.
+            post_pr_comment(repo_full_name, pr_number, final_markdown)
         else:
             print("PR 번호 또는 리포지토리 이름을 찾을 수 없어 코멘트를 등록하지 못했습니다.")
     
-    return markdown_output
+    return final_markdown

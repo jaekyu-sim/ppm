@@ -1,4 +1,5 @@
 import json
+import asyncio
 from datetime import datetime
 from typing import Any, Dict
 from urllib.parse import parse_qs
@@ -19,7 +20,6 @@ from rag_boot_phase2 import load_or_build_vector_store
 #from rag_feature import extract_features, build_query_from_features
 #from rag_utils import search_requirements, judge_one
 #from req_check_graph import create_req_check_graph
-#import asyncio
 
 from graph.node import code_interpreter, compare_to_rfp
 from graph.build import create_code_compare_to_rfp_graph
@@ -27,16 +27,7 @@ from graph.state import AgentState
 from result_processor import process_code_comparison_result
 from github_service import get_pr_changed_files_content, get_commit_changed_files_content
 
-
 smee_client_manager: SmeeClientManager = None
-
-vector_store, _embeddings = load_or_build_vector_store()
-
-retriever = vector_store.as_retriever(search_kwargs={'k': 1})
-
-llm = ChatOllama(model="qwen3:4b-instruct-2507-q8_0", temperature=0.2)
-
-#req_check_graph = create_req_check_graph(vector_store, llm, top_k=5)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -70,50 +61,36 @@ app = FastAPI(lifespan=lifespan)
 async def root():
    return {"message": "FastAPI 서버가 실행 중입니다!"}
 
-@app.post("/webhook")
-async def github_webhook(request: Request):
-    data = await request.json()
-    event_type = request.headers.get('X-GitHub-Event')
-
+def handle_webhook_sync(data: Dict, event_type: str):
     try:
         repo_full_name = None
         pr_number = None
         commit_sha = None
         rfp_number = None
-
         commitResult = None
 
+        # 이벤트 타입에 따른 소스코드 변경점 조회
         if event_type == 'push':
             print("Push 이벤트 수신")
-
             repo_full_name = data['repository']['full_name']
             commit_sha = data['head_commit']['id']
             branch_name = data['ref'].split('/')[-1]
             rfp_number = branch_name
-            
-            match = re.match(r"^[A-Z]{3}-\d+", branch_name)
-            if match:
+            if match := re.match(r"^[A-Z]{3}-\d+", branch_name):
                 rfp_number = match.group(0)
-
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Webhook 처리 시작: {repo_full_name}, Commit SHA: {commit_sha}, Branch: {branch_name}, RFP: {rfp_number}")
-            
             commitResult = get_commit_changed_files_content(repo_full_name, commit_sha)
 
         elif event_type == 'pull_request':
             print("Pull Request 이벤트 수신")
-
             repo_full_name = data['repository']['full_name']
             pr_number = data['number']
             commit_sha = data['pull_request']['head']['sha']
             branch_name = data['pull_request']['head']['ref']
             rfp_number = branch_name
-
-            match = re.match(r"^[A-Z]{3}-\d+", branch_name)
-            if match:
+            if match := re.match(r"^[A-Z]{3}-\d+", branch_name):
                 rfp_number = match.group(0)
-
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Webhook 처리 시작: {repo_full_name}, PR: #{pr_number}, Commit SHA: {commit_sha}, Branch: {branch_name}, RFP: {rfp_number}")
-            
             commitResult = get_pr_changed_files_content(repo_full_name, pr_number)
         
         else:
@@ -123,56 +100,24 @@ async def github_webhook(request: Request):
         if not commitResult or not commitResult.get('file_list'):
             return {"status": "error", "message": "커밋 데이터 조회에 실패했습니다."}
 
-        
-        # RAG 불러오기.
+        # 소스코드 변경점과 RFP 비교 (LangGraph 호출)
         file_list = commitResult['file_list']
-        all_answers = []
-        
         graph = create_code_compare_to_rfp_graph()
         compare_result = graph.invoke({'file_code': file_list, 'tmp_rfp_number': rfp_number})
 
         print("==============================================================")
         print("FINAL RESULT : ", compare_result)
         
-        if compare_result and 'answer' in compare_result:
-            all_answers.extend(compare_result['answer'])
+        # PR 코멘트 전송
+        if event_type == 'pull_request':
+            pr_comment_send = data.get('pr_comment_send', True)
+            pr_comment_debug = data.get('pr_comment_debug', False)
+            result_markdown = process_code_comparison_result(
+                compare_result, repo_full_name, pr_comment_send, pr_number, pr_comment_debug
+            )
+            return Response(content=result_markdown, media_type="text/markdown")
 
-        # for i in range(len(file_list)):
-        #     file_path = file_list[i]['fileName']
-        #     file_code = file_list[i]['code']
-            
-        #     # code_interpreter_prompt = PromptTemplate.from_template(code_interpreter_template)
-        #     # code_interpreter_result_chain = code_interpreter_prompt | llm | StrOutputParser()
-        #     # result = code_interpreter_result_chain.invoke({"information": file_code})
-        #     #print("code_interpreter node 실행 시작")
-        #     state = AgentState(file_code=file_list[i]['code'])
-
-    
-        #     # # NODE 1 시작
-        #     # result = code_interpreter(state)
-        #     # result = result['answer']
-
-        #     # # NODE 2 시작
-        #     # state = AgentState(answer=result)
-        #     # answ = compare_to_rfp(state)
-        #     # print("*** sss *** sss : ", answ)
-
-        #     graph = create_code_compare_to_rfp_graph()
-        #     compare_result = graph.invoke({'file_code': file_list[i]['code']})
-        #     print("==============================================================")
-        #     print("FINAL RESULT : ", compare_result)
-            
-        #     if compare_result and 'answer' in compare_result:
-        #         all_answers.extend(compare_result['answer'])
-
-        final_result = {'answer': all_answers}
-        
-        pr_comment_send = data.get('pr_comment_send', True)
-        pr_number = data['number']
-
-        result_markdown = await process_code_comparison_result(final_result, repo_full_name, pr_comment_send, pr_number)
-
-        return Response(content=result_markdown, media_type="text/markdown")
+        return {"result": compare_result}
     
     except KeyError as e:
         print(f"Webhook payload에서 필요한 키를 찾을 수 없습니다: {e}")
@@ -181,7 +126,13 @@ async def github_webhook(request: Request):
         print(f"Webhook 처리 중 오류 발생: {e}")
         return {"status": "error", "message": str(e)}
 
+@app.post("/webhook")
+async def github_webhook(request: Request):
+    data = await request.json()
+    event_type = request.headers.get('X-GitHub-Event')
     
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, handle_webhook_sync, data, event_type)
 
 if __name__ == "__main__":
     # Uvicorn을 사용하여 FastAPI 애플리케이션 실행
