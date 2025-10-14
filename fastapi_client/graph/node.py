@@ -165,6 +165,7 @@ def summarize_method_function(state: AgentState):
 def match_summary_to_requirement(state:AgentState):
 
     file_list = state['parsed_methods']
+    tmp_rfp_id = state['tmp_rfp_number']
 
     print("--- " + "- " * 10 + "4단계: 요약문을 RAG에 검색하여 요구사항 매칭 시작" + "- " * 10 + " ---")
 
@@ -181,7 +182,8 @@ def match_summary_to_requirement(state:AgentState):
                 #scored_docs = vector_store.similarity_search_with_score(summary, k=3)
 
                 # 아래 추가.
-                candidates_with_score = vector_store.similarity_search_with_score(summary, k=3)
+                # candidates_with_score = vector_store.similarity_search_with_score(summary, k=3)
+                candidates_with_score = vector_store.similarity_search_with_score(summary, filter={"source": tmp_rfp_id}, k=3)
                 candidates = [doc for doc, _ in candidates_with_score]
                 scored_docs = ollama_bge_rerank(summary, candidates, top_n=1)
                 
