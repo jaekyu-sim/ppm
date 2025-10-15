@@ -223,56 +223,88 @@ def match_summary_to_requirement(state:AgentState):
 # 1. 개별 함수 분석 결과를 위한 모델
 class FunctionDetail(BaseModel):
     """소프트웨어 기능 명세를 담는 구조"""
-    file: str = Field(description="함수가 위치한 파일명")
-    name: str = Field(description="함수의 기능 이름 (예: 사용자 등록 기능)")
-    purpose: str = Field(description="해당 기능의 목적/역할을 설명")
-    input: str = Field(description="기능 수행에 필요한 입력 데이터 항목")
-    processing: str = Field(description="주요 처리 로직/단계 (예: 이메일 중복 검사 → 암호화 → DB 저장)")
-    output: str = Field(description="기능 수행 후 반환되는 결과")
-    exceptions: str = Field(description="발생 가능한 예외 상황 및 처리 내용")
+    file: str = Field(description="함수가 위치한 파일명 (예: com.example.course.controller.CourseBookmarkController.java)")
+    name: str = Field(description="함수의 기능 이름 (예: getUserBookmarkedCoursesPaged)")
+    purpose: str = Field(description="해당 기능의 목적/역할을 설명 (예: 현재 사용자의 즐겨찾기 과정 목록을 페이징하여 조회한다.)")
+    input: str = Field(description="함수 호출 시 입력 받는 매개변수, 매개변수가 없으면 빈 값 입력 (예: 인증 정보 (Authentication), 페이징 정보 (Pageable))")
+    processing: str = Field(description="함수의 주요 처리 로직/단계에 대한 설명 (예: 인증 정보에서 사용자 ID를 추출하고, 북마크 서비스를 통해 페이징된 즐겨찾기 과정 목록을 조회한 후, 응답으로 반환한다.)")
+    output: str = Field(description="기능 수행 후 반환되는 결과, 반환이 없으면 빈 값 입력 (예: 즐겨찾기한 과정 페이지 (Page<CourseResponse>))")
+    exceptions: str = Field(description="발생 가능한 예외 상황 및 처리 내용 (예: 사용자를 찾을 수 없을 경우 EntityNotFoundException이 발생한다.)")
 
 # 2. 전체 결과를 위한 모델
 class CodeAnalysisResult(BaseModel):
     """Code Interpreter의 최종 분석 결과"""
     functions: List[FunctionDetail]
 
-code_interpreter_prompt = PromptTemplate.from_template(
-     """
-    당신은 Code Review 전문가이며, 아래의 `information List`에 포함된 모든 항목(each item)을 분석해야 합니다.
-    각 항목마다 하나의 객체를 만들어 JSON 배열에 추가하세요. 어떤 항목도 생략하지 마세요.
-
-    **출력 형식:**
-    결과는 다음 JSON 스키마를 따르며, "functions" 배열 안에 각 항목의 분석 결과를 모두 포함해야 합니다.
-    다른 설명 없이 이 스키마를 따르는 JSON 객체만 출력하세요.
-    {json_schema}
-
-    이제 다음 제공된 'information List'를 분석하고, 위의 JSON 형식을 반드시 준수하여 결과물을 생성하세요.
-    information List:
-    {information}
-    """
-)
-
 
 def code_interpreter(state:AgentState):
     regrouped_methods = state['regrouped_methods']
+    results = []  # 최종 FunctionDetail 객체 리스트
 
-    # Pydantic 스키마의 JSON 버전을 프롬프트에 주입
-    json_schema = CodeAnalysisResult.schema_json(indent=2)
+    # LLM이 CodeAnalysisResult 전체를 반환하도록 설정
+    # Pydantic 모델 클래스 자체를 인수로 전달해야 합니다.
+    structured_llm_chain = llm.with_structured_output(CodeAnalysisResult)
 
-    # 프롬프트 구성
-    filled_prompt = code_interpreter_prompt.partial(json_schema=json_schema)
+    # CodeAnalysisResult의 JSON 스키마를 프롬프트에 주입
+    json_schema_full = CodeAnalysisResult.schema_json(indent=2)
 
-    # with_structured를 사용하여 LLM의 출력을 CodeAnalysisResult Pydantic 모델에 맞추도록 강제
-    structured_llm = llm.with_structured_output(CodeAnalysisResult)
+    # 단일 파일/항목 분석을 위한 프롬프트
+    # LLM에게 List[FunctionDetail]이 아닌 CodeAnalysisResult 객체를 요청합니다.
+    single_item_prompt = PromptTemplate.from_template(
+        """
+        당신은 Code Review 전문가입니다. 아래 '분석 대상 항목'은 하나의 파일 정보이며,
+        이 파일 안에 포함된 모든 메서드(`method_list`)를 분석하여
+        메서드 개수만큼의 FunctionDetail 객체를 "functions" 배열에 담아 **CodeAnalysisResult 객체**를 반환하세요.
+        다른 설명 없이 JSON 객체만 출력하세요.
 
-    # 체인 정의 및 호출
-    code_interpreter_result_chain = filled_prompt | structured_llm
+        CodeAnalysisResult 객체 구조:
+        {json_schema_full}
 
-    # 결과는 이미 Pydantic 객체로 파싱됨
-    result_pydantic_object = code_interpreter_result_chain.invoke({"information": regrouped_methods})
+        분석 대상 항목:
+        {item_information}
+        """
+    ).partial(json_schema_full=json_schema_full)  # 스키마를 partial로 미리 주입
 
-    # 필요하다면 딕셔너리로 변환하여 반환
-    return {'answer': result_pydantic_object.model_dump()}
+    # Chain은 'single_item_prompt'와 'structured_llm_chain'을 연결
+    code_interpreter_result_chain = single_item_prompt|structured_llm_chain
+
+    # 1. regrouped_methods 구조 순회
+    for rfp_block in regrouped_methods:
+        rfp_name = rfp_block.get("rfp_name", "N/A")
+
+        # 2. file_list 순회
+        for file_data in rfp_block.get('file_list', []):
+            file_name = file_data.get("file_name", "N/A")
+
+            # 3. LLM에게 전달할 항목 정보 문자열 생성 (파일 전체 내용)
+            # LLM이 파싱 오류 없이 내용을 볼 수 있도록 문자열로 덤프합니다.
+            item_info_str = json.dumps(file_data, indent=2, ensure_ascii=False)
+
+            print(f"** 분석 시작: RFP={rfp_name}, 파일={file_name} **")
+
+            # 4. LLM 호출
+            try:
+
+                verdict: CodeAnalysisResult = code_interpreter_result_chain.invoke({
+                    "item_information": item_info_str
+                })
+
+                # 5. 결과 추출 및 통합
+                # 결과는 CodeAnalysisResult 객체이므로, functions 리스트만 추출
+                if verdict and verdict.functions:
+                    results.extend(verdict.functions)
+                    print(f"   -> 성공: {len(verdict.functions)}개 메서드 분석 결과 통합.")
+                else:
+                    print(f"   -> 경고: LLM이 유효한 functions 리스트를 반환하지 않음.")
+
+            except Exception as e:
+                # LLM 호출 및 Pydantic 파싱 실패 시 처리
+                print(f"   -> 오류: 처리 중 예외 발생: {e}")
+                # 오류가 발생한 파일의 정보는 누락되지만, 전체 루프는 중단되지 않습니다.
+                # 필요하다면 여기에 오류 정보를 담은 더미 FunctionDetail을 추가할 수 있습니다.
+
+    # 최종적으로 FunctionDetail 객체 리스트를 딕셔너리 형태로 반환
+    return {'functions': [res.model_dump() for res in results]}
 
 
 judge_schema = """
@@ -322,9 +354,7 @@ judge_prompt = PromptTemplate.from_template("""
 """).partial(schema=judge_schema)
 
 def compare_to_rfp(state:AgentState):
-    result_data = state['answer']
-    func_blocks = result_data.get("functions", [])
-    #print(" ** ** ** func_blocks : ", func_blocks)
+    func_blocks = state['functions']
 
     def build_requirements_block(docs):
         lines = []
