@@ -163,19 +163,18 @@ def summarize_method_function(state: AgentState):
 
 
 def match_summary_to_requirement(state:AgentState):
-
     file_list = state['parsed_methods']
     tmp_rfp_id = state['tmp_rfp_number']
 
     print("--- " + "- " * 10 + "4단계: 요약문을 RAG에 검색하여 요구사항 매칭 시작" + "- " * 10 + " ---")
-
+    my_list = []
     for file_object in file_list:
         for method in file_object.get('method_list', []):
             summary = method.get('summary')
             rfp_number = 'N/A'
             requirement_content = 'N/A'
             score = 0.0
-            
+
             if summary:
                 # rerank 포인트2
                 # 아래 한줄 주석.
@@ -186,7 +185,7 @@ def match_summary_to_requirement(state:AgentState):
                 candidates_with_score = vector_store.similarity_search_with_score(summary, filter={"source": tmp_rfp_id}, k=3)
                 candidates = [doc for doc, _ in candidates_with_score]
                 scored_docs = ollama_bge_rerank(summary, candidates, top_n=1)
-                
+
                 if scored_docs:
                     top_doc, score = scored_docs[0]
                     rfp_number = top_doc.metadata.get('list_name', 'N/A')
@@ -202,11 +201,11 @@ def match_summary_to_requirement(state:AgentState):
                     except (json.JSONDecodeError, TypeError):
                         # JSON 파싱에 실패하면 원본 문자열을 그대로 사용
                         requirement_content = top_doc.page_content
-            
+
             method['rfp_number'] = rfp_number
             method['score'] = score
             method['requirement_content'] = requirement_content
-
+            my_list.append({'rfp_number': rfp_number, 'requirement_content': requirement_content })
             print(
                 f"[File: {file_object['file_name']}]\n"
                 f"  - Method: {method['method_name']}\n"
@@ -215,10 +214,19 @@ def match_summary_to_requirement(state:AgentState):
                 f"     ㄴ 내용: {requirement_content}\n"
                 f"--------------------------------------------------"
             )
-            
+    # 1. 각 딕셔너리의 item()을 가져와 정렬된 튜플로 변환합니다.
+    #    (딕셔너리의 키 순서가 달라도 동일한 내용이면 같은 튜플이 되도록 하기 위해 sorted()를 사용합니다.)
+    tuple_list = [tuple(sorted(d.items())) for d in my_list]
+
+    # 2. 튜플 리스트를 set으로 변환하여 중복을 제거합니다.
+    unique_tuples = set(tuple_list)
+
+    # 3. set의 각 튜플을 다시 딕셔너리로 변환하여 리스트를 만듭니다.
+    unique_list = [dict(t) for t in unique_tuples]
+
     print("--- " + "- " * 10 + "4단계: 요구사항 매칭 완료" + "- " * 10 + " ---")
 
-    return { 'parsed_methods' : file_list }
+    return {'parsed_methods': file_list, 'requirements': unique_list}
 
 # 1. 개별 함수 분석 결과를 위한 모델
 class FunctionDetail(BaseModel):
@@ -309,7 +317,8 @@ def code_interpreter(state:AgentState):
 
 judge_schema = """
     {{
-    "function_name": "<문자열: 함수 식별용 라벨(없으면 파일명+인덱스)>",
+    "rfp_id": "<문자열: 요구사항 식별용 라벨>",
+    "rfp_contents": "<문자열: 요구사항에 대한 내용>",
     "summary": "<한 줄 평가 요약>",
     "decision": "충족 | 부분충족 | 미충족",
     "scores": {{
@@ -320,7 +329,7 @@ judge_schema = """
     }},
     "missing_points": ["<부족/누락된 요구사항 포인트들>"],
     "trace": {{
-        "matched_requirement_ids": ["<선정된 요구사항 id 또는 출처>"]
+        "matched_functions": ["<요구사항에 사용된 함수들 정보>"]
     }}
     """
 
@@ -328,7 +337,7 @@ judge_prompt = PromptTemplate.from_template("""
 당신은 소프트웨어 요구사항 검증 전문가입니다.
 
 [평가 목적]
-- 주어진 \"함수 수준 기능 명세(자연어 요약)\"가 아래 \"요구사항 후보들\"을 얼마나 충족하는지 판정하세요.
+- 주어진 \"요구사항\"에 대해 \"함수 수준 기능 명세(자연어 요약)\"를 바탕으로 얼마나 충족하는지 판정하세요.
 - 판정 기준: 기능/입력/처리/출력/예외 5가지 관점.
 - RFP 요구사항은 불변의 진리이므로 요구사항의 불완전성을 고려하지 않는다.
 - 요구사항 외의 사항은 **절대** 검사하지 않는다.
@@ -343,41 +352,29 @@ judge_prompt = PromptTemplate.from_template("""
 - \"미충족\": 핵심 요구를 만족하지 못함
 - 점수는 0.0~1.0 (소수 둘째 자리 권장)
 - missing_points에는 구체적 부족 항목을 불릿으로 기입
-- trace.matched_requirement_ids에는 근거가 된 요구사항의 id나 출처를 나열
+- trace.matched_functions에는 요구사항을 구성하는 함수의 정보를 나열
 - RFP 요구사항은 불변의 진리이므로 요구사항의 불완전성을 고려하지 않음
-- 요구사항 외의 사항은 **절대** 검사하지 않음
 
 [입력]
-- 함수명/식별자: {func_label}
-- 함수 명세(자연어): {func_text}
-- 요구사항 후보들: {requirements_block}
+- 요구사항 정보: {requirements_data}
+- 함수 리스트: {func_text}
+
 """).partial(schema=judge_schema)
 
 def compare_to_rfp(state:AgentState):
     func_blocks = state['functions']
+    requirements_blocks = state['requirements']
 
-    def build_requirements_block(docs):
-        lines = []
-        for i, d in enumerate(docs, 1):
-            rid = d.metadata.get("id") or d.metadata.get("source") or f"req_{i}"
-            lines.append(f"- [{rid}] {d.page_content.strip()}")
-        return "\n".join(lines)
 
-    def judge_one_func(func_label, func_text, retriever, llm):
-        # 1-1) 검색
-        docs = retriever.invoke(func_text)
-        req_block = build_requirements_block(docs)
-
-        # rerank 포인트1
+    def judge_one_func(requirements_data, func_text, llm):
 
         # 2) LLM 판정
         chain = judge_prompt | llm | JsonOutputParser()
         verdict = chain.invoke({
-            "func_label": func_label,
-            "func_text": func_text,
-            "requirements_block": req_block
+            "requirements_data": requirements_data,
+            "func_text": func_text
         })
-        
+
         data = verdict
 
         # 3) 총점 산출(가중 평균 예시)
@@ -393,19 +390,13 @@ def compare_to_rfp(state:AgentState):
             s.get("출력정합성", 0)*weights["출력정합성"]
         )
         data["total_score"] = round(total, 3)
-        data["requirements_candidates"] = [
-            {
-                "id": d.metadata.get("id") or d.metadata.get("source"),
-                "snippet": d.page_content[:300]
-            } for d in docs
-        ]
         return data
-    
-    results = []
-    for idx, func_data in enumerate(func_blocks, 1):
-        func_label = func_data.get("name") or f"func{idx}"
 
-        func_text = f"""
+    results = []
+    func_text = ""
+    for idx, func_data in enumerate(func_blocks, 1):
+        func_text += f"""
+        -----
         파일명: {func_data.get('file', '')}
         기능명: {func_data.get('name', '')}
         목적: {func_data.get('purpose', '')}
@@ -415,9 +406,8 @@ def compare_to_rfp(state:AgentState):
         예외: {func_data.get('exceptions', '')}
         """.strip()
 
-        verdict = judge_one_func(func_label, func_text, retriever, llm)
-        verdict["raw_block"] = func_data # 원문 보관
+    for idx, requirements_data in enumerate(requirements_blocks, 1):
+        verdict = judge_one_func(requirements_data, func_text, llm)
         results.append(verdict)
-    #print("*** *** *** ", results)
 
     return {'answer' : results}
