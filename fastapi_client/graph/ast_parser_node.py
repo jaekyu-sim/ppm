@@ -36,6 +36,7 @@ def parse_methods_from_file(state: AgentState) -> List[FileParseResult]:
 
 def regroup_methods(state: AgentState) -> List[RegroupMethodResult]:
     parsed_methods_list = state['parsed_methods']
+    tmp_rfp_number = state['tmp_rfp_number']
     fileCode_list = state['file_code']
     fileCode_dic = {}
     for a in fileCode_list:
@@ -56,15 +57,17 @@ def regroup_methods(state: AgentState) -> List[RegroupMethodResult]:
         path_name = extract_java_path(file_name)
 
         for method in file['method_list']:
-            rfp = method['rfp_number']
-            if rfp not in rfp_dict:
-                rfp_dict[rfp] = {
-                    "rfp_name": rfp,
+            rfp_number = method['rfp_number']
+            if tmp_rfp_number not in rfp_number:
+                continue
+            if rfp_number not in rfp_dict:
+                rfp_dict[rfp_number] = {
+                    "rfp_name": rfp_number,
                     "file_list": []
                 }
             # 파일 내 이미 file_list에 추가됨을 체크
             file_item = next(
-                (f for f in rfp_dict[rfp]["file_list"]
+                (f for f in rfp_dict[rfp_number]["file_list"]
                  if f["file_name"] == java_file and f["path_name"] == path_name),
                 None
             )
@@ -95,7 +98,7 @@ def regroup_methods(state: AgentState) -> List[RegroupMethodResult]:
                     path = import_map.get(type_name, type_name)
                     caller_variable.append({"path": path, "name": var_name})
 
-                rfp_dict[rfp]["file_list"].append({
+                rfp_dict[rfp_number]["file_list"].append({
                     "path_name": path_name,
                     "file_name": java_file,
                     "method_list": [method_item],

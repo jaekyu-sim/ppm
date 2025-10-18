@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from typing import List
 
 from langchain_core.output_parsers import JsonOutputParser
@@ -167,7 +166,7 @@ def match_summary_to_requirement(state:AgentState):
     tmp_rfp_id = state['tmp_rfp_number']
 
     print("--- " + "- " * 10 + "4단계: 요약문을 RAG에 검색하여 요구사항 매칭 시작" + "- " * 10 + " ---")
-    my_list = []
+
     for file_object in file_list:
         for method in file_object.get('method_list', []):
             summary = method.get('summary')
@@ -182,7 +181,7 @@ def match_summary_to_requirement(state:AgentState):
 
                 # 아래 추가.
                 # candidates_with_score = vector_store.similarity_search_with_score(summary, k=3)
-                candidates_with_score = vector_store.similarity_search_with_score(summary, filter={"source": tmp_rfp_id}, k=3)
+                candidates_with_score = vector_store.similarity_search_with_score(summary, k=3)
                 candidates = [doc for doc, _ in candidates_with_score]
                 scored_docs = ollama_bge_rerank(summary, candidates, top_n=1)
 
@@ -205,7 +204,7 @@ def match_summary_to_requirement(state:AgentState):
             method['rfp_number'] = rfp_number
             method['score'] = score
             method['requirement_content'] = requirement_content
-            my_list.append({'rfp_number': rfp_number, 'requirement_content': requirement_content })
+
             print(
                 f"[File: {file_object['file_name']}]\n"
                 f"  - Method: {method['method_name']}\n"
@@ -214,21 +213,11 @@ def match_summary_to_requirement(state:AgentState):
                 f"     ㄴ 내용: {requirement_content}\n"
                 f"--------------------------------------------------"
             )
-    # 1. 각 딕셔너리의 item()을 가져와 정렬된 튜플로 변환합니다.
-    #    (딕셔너리의 키 순서가 달라도 동일한 내용이면 같은 튜플이 되도록 하기 위해 sorted()를 사용합니다.)
-    tuple_list = [tuple(sorted(d.items())) for d in my_list]
-
-    # 2. 튜플 리스트를 set으로 변환하여 중복을 제거합니다.
-    unique_tuples = set(tuple_list)
-
-    # 3. set의 각 튜플을 다시 딕셔너리로 변환하여 리스트를 만듭니다.
-    unique_list = [dict(t) for t in unique_tuples]
-
-    sorted_list = sorted(unique_list, key=lambda d: d['rfp_number'])
 
     print("--- " + "- " * 10 + "4단계: 요구사항 매칭 완료" + "- " * 10 + " ---")
 
     return {'parsed_methods': file_list, 'requirements': sorted_list}
+    return {'parsed_methods': file_list}
 
 # 1. 개별 함수 분석 결과를 위한 모델
 class FunctionDetail(BaseModel):
@@ -378,7 +367,27 @@ judge_prompt = PromptTemplate.from_template("""
 
 def compare_to_rfp(state:AgentState):
     func_blocks = state['functions']
-    requirements_blocks = state['requirements']
+    tmp_rfp_id = state['tmp_rfp_number']
+    requirements_from_db = vector_store.search(query=f"하위ID 값에 {tmp_rfp_id}가 포함된 문서를 찾아줘", search_type="similarity", k=100, filter={"source": tmp_rfp_id})
+
+    my_list = []
+    for item in requirements_from_db:
+        print(item)
+        rfp_number = item.metadata.get('list_name','N/A')
+        requirement_content = item.page_content
+        my_list.append({'rfp_number': rfp_number, 'requirement_content': requirement_content})
+
+    # 1. 각 딕셔너리의 item()을 가져와 정렬된 튜플로 변환합니다.
+    #    (딕셔너리의 키 순서가 달라도 동일한 내용이면 같은 튜플이 되도록 하기 위해 sorted()를 사용합니다.)
+    tuple_list = [tuple(sorted(d.items())) for d in my_list]
+
+    # 2. 튜플 리스트를 set으로 변환하여 중복을 제거합니다.
+    unique_tuples = set(tuple_list)
+
+    # 3. set의 각 튜플을 다시 딕셔너리로 변환하여 리스트를 만듭니다.
+    unique_list = [dict(t) for t in unique_tuples]
+
+    requirements_blocks = sorted(unique_list, key=lambda d: d['rfp_number'])
 
     def judge_one_func(requirements_data, func_text, llm):
 
@@ -410,6 +419,7 @@ def compare_to_rfp(state:AgentState):
     func_text = ""
     for idx, func_data in enumerate(func_blocks, 1):
         func_text += f"""
+        
         -----
         file: {func_data.get('file', '')}
         name: {func_data.get('name', '')}
@@ -418,10 +428,12 @@ def compare_to_rfp(state:AgentState):
         processing: {func_data.get('processing', '')}
         output: {func_data.get('output', '')}
         exceptions: {func_data.get('exceptions', '')}
+        -----
+        
         """.strip()
 
     for idx, requirements_data in enumerate(requirements_blocks, 1):
         verdict = judge_one_func(requirements_data, func_text, llm)
         results.append(verdict)
 
-    return {'answer' : results}
+    return {'answer' : results, 'requirements' : requirements_blocks}
