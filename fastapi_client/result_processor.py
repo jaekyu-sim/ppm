@@ -97,6 +97,7 @@ def format_debug_info(debug_data: Dict[str, Any], repo_full_name: str, pr_number
 def process_code_comparison_result(
     final_result: Dict[str, Any], 
     repo_full_name: str, 
+    commit_sha: str,
     pr_comment_send: bool, 
     pr_number: int | None,
     pr_comment_debug: bool = False
@@ -107,7 +108,7 @@ def process_code_comparison_result(
     if pr_comment_debug and pr_number and repo_full_name:
         debug_markdown = format_debug_info(final_result, repo_full_name, pr_number)
 
-    markdown_output = format_compare_result_to_markdown(final_result)
+    markdown_output = format_final_result_to_markdown(final_result, repo_full_name, commit_sha)
     
     # 디버그 마크다운을 메인 출력 앞에 추가합니다.
     final_markdown = debug_markdown + markdown_output
@@ -121,3 +122,89 @@ def process_code_comparison_result(
             print("PR 번호 또는 리포지토리 이름을 찾을 수 없어 코멘트를 등록하지 못했습니다.")
     
     return final_markdown
+
+def format_final_result_to_markdown(json_data: dict, repository: str, sha: str) -> str:
+    answer = json_data.get("answer", [])
+    file_code_map = {f.get("file_name").split('/')[-1]: f.get("file_name") for f in json_data.get("file_code", [])}
+
+    if not answer:
+        return "# 📊 요구사항 정합성 검증 결과\n\n검증 결과가 없습니다."
+
+    # 1. 전체 결과 요약
+    total_count = len(answer)
+    fulfilled_count = sum(1 for item in answer if item['decision'] == '충족')
+    partially_fulfilled_count = sum(1 for item in answer if item['decision'] == '부분충족')
+    unfulfilled_count = sum(1 for item in answer if item['decision'] == '미충족')
+    progress_rate = (fulfilled_count / total_count) * 100 if total_count > 0 else 0
+
+    rfp_number = json_data.get("tmp_rfp_number", "N/A")
+    markdown = f"# 📊 {rfp_number} 요구사항 정합성 검증 결과\n\n"
+    markdown += "## 📈 전체 결과 요약\n\n"
+    markdown += "| 전체 항목 | ✅ 충족 | 🟡 부분 충족 | 🔴 미충족 | 개발진척율 |\n"
+    markdown += "| :---: | :---: | :---: | :---: | :---: |\n"
+    markdown += f"| {total_count} | {fulfilled_count} | {partially_fulfilled_count} | {unfulfilled_count} | {progress_rate:.0f}% |\n\n"
+
+    # 2. 상세 요구사항별 결과
+    markdown += "## 📋 상세 요구사항별 결과\n\n"
+    markdown += "| No | 상세 요구사항 | 내용 | 충족도 | 종합 점수 |\n"
+    markdown += "| :--- | :--- | :--- | :---: | :---: |\n"
+    decision_to_icon = {
+        "충족": "✅",
+        "부분충족": "🟡",
+        "미충족": "🔴"
+    }
+    for i, item in enumerate(answer, 1):
+        decision_text = f"{decision_to_icon.get(item['decision'], '')} {item['decision']}"
+        markdown += f"| {i} | {item['rfp_id']} | {item['rfp_contents']['content']} | {decision_text} | {item['total_score']:.2f} |\n"
+
+    markdown += "\n<br/>\n\n"
+
+    # 3. 상세 요구사항별 상세
+    for item in answer:
+        markdown += "\n---\n\n<br/>\n\n"
+        markdown += f"## {item['rfp_id']} : {item['rfp_contents']['content']}\n\n"
+        
+        # 요구사항, 검증 결과, 요약, 종합 점수
+        decision_text = f"{decision_to_icon.get(item['decision'], '')} **{item['decision']}**"
+        markdown += f"- **구현 시 참고사항**: {item['rfp_contents']['reference']}\n"
+        markdown += f"- **검증 결과**: {decision_text}\n\n"
+        markdown += f"  - {item['summary']}\n\n"
+        markdown += f"- **종합 점수**: {item['total_score']:.2f}\n\n"
+
+        # 상세 점수
+        scores = item['scores']
+        markdown += "  | 기능정합성 | 입력정합성 | 처리정합성 | 출력정합성 |\n"
+        markdown += "  | :---: | :---: | :---: | :---: |\n"
+        markdown += f"  | {scores.get('기능정합성', 0.0):.2f} | {scores.get('입력정합성', 0.0):.2f} | {scores.get('처리정합성', 0.0):.2f} | {scores.get('출력정합성', 0.0):.2f} |\n"
+
+        # 보완 필요 사항
+        if item.get('missing_points'):
+            markdown += "> [!WARNING]\n"
+            markdown += "> ⚠️ **보완 필요 사항**\n"
+            for point in item['missing_points']:
+                markdown += f"> {point}\n"
+
+        # 추적된 함수 목록
+        markdown += "\n### 🔍 추적된 함수 목록\n\n"
+        markdown += "  | File | Function | Link |\n"
+        markdown += "  | :--- | :--- | :--- |\n"
+        for func in item['trace']['matched_functions']:
+            short_filename = func['file'].split('.')[-2] + '.java'
+            full_path = file_code_map.get(short_filename, func['file'])
+            link = f"[Link](https://github.com/{repository}/blob/{sha}/{full_path})"
+            markdown += f"  | {short_filename} | {func['name']} | {link} |\n"
+
+        # 함수 상세
+        markdown += "\n### ⚙️ 함수 상세\n\n"
+        for func in item['trace']['matched_functions']:
+            short_filename = func['file'].split('.')[-2] + '.java'
+            markdown += f"  <details>\n<summary>{short_filename} - {func['name']}</summary>\n\n"
+            markdown += f"- **파일:** {func['file']}\n"
+            markdown += f"- **기능:** {func['purpose']}\n"
+            markdown += f"- **입력:** {func['input']}\n"
+            markdown += f"- **처리:** {func['processing']}\n"
+            markdown += f"- **출력:** {func['output']}\n"
+            markdown += f"- **예외:** {func['exceptions']}\n"
+            markdown += "  </details>\n"
+
+    return markdown

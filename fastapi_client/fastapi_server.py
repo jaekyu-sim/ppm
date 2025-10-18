@@ -113,7 +113,7 @@ def handle_webhook_sync(data: Dict, event_type: str):
             pr_comment_send = data.get('pr_comment_send', True)
             pr_comment_debug = data.get('pr_comment_debug', False)
             result_markdown = process_code_comparison_result(
-                compare_result, repo_full_name, pr_comment_send, pr_number, pr_comment_debug
+                compare_result, repo_full_name, commit_sha, pr_comment_send, pr_number, pr_comment_debug
             )
             return Response(content=result_markdown, media_type="text/markdown")
 
