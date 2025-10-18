@@ -314,7 +314,6 @@ def code_interpreter(state:AgentState):
     # 최종적으로 FunctionDetail 객체 리스트를 딕셔너리 형태로 반환
     return {'functions': [res.model_dump() for res in results]}
 
-
 judge_schema = """
     {{
     "rfp_id": "<문자열: 요구사항 식별용 라벨>",
@@ -329,7 +328,17 @@ judge_schema = """
     }},
     "missing_points": ["<부족/누락된 요구사항 포인트들>"],
     "trace": {{
-        "matched_functions": ["<요구사항에 사용된 함수들 정보>"]
+        "matched_functions": ["<요구사항에 사용된 함수들 정보(JSON 구조:
+        {{
+            "file": "",
+            "name": "",
+            "purpose": "",
+            "input": "",
+            "processing": "",
+            "output": "",
+            "exceptions": ""
+        }}>"]
+        }}
     }}
     """
 
@@ -365,7 +374,6 @@ def compare_to_rfp(state:AgentState):
     func_blocks = state['functions']
     requirements_blocks = state['requirements']
 
-
     def judge_one_func(requirements_data, func_text, llm):
 
         # 2) LLM 판정
@@ -397,13 +405,13 @@ def compare_to_rfp(state:AgentState):
     for idx, func_data in enumerate(func_blocks, 1):
         func_text += f"""
         -----
-        파일명: {func_data.get('file', '')}
-        기능명: {func_data.get('name', '')}
-        목적: {func_data.get('purpose', '')}
-        입력: {func_data.get('input', '')}
-        처리: {func_data.get('processing', '')}
-        출력: {func_data.get('output', '')}
-        예외: {func_data.get('exceptions', '')}
+        file: {func_data.get('file', '')}
+        name: {func_data.get('name', '')}
+        purpose: {func_data.get('purpose', '')}
+        input: {func_data.get('input', '')}
+        processing: {func_data.get('processing', '')}
+        output: {func_data.get('output', '')}
+        exceptions: {func_data.get('exceptions', '')}
         """.strip()
 
     for idx, requirements_data in enumerate(requirements_blocks, 1):
