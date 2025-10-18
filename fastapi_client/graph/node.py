@@ -224,9 +224,11 @@ def match_summary_to_requirement(state:AgentState):
     # 3. set의 각 튜플을 다시 딕셔너리로 변환하여 리스트를 만듭니다.
     unique_list = [dict(t) for t in unique_tuples]
 
+    sorted_list = sorted(unique_list, key=lambda d: d['rfp_number'])
+
     print("--- " + "- " * 10 + "4단계: 요구사항 매칭 완료" + "- " * 10 + " ---")
 
-    return {'parsed_methods': file_list, 'requirements': unique_list}
+    return {'parsed_methods': file_list, 'requirements': sorted_list}
 
 # 1. 개별 함수 분석 결과를 위한 모델
 class FunctionDetail(BaseModel):
@@ -317,7 +319,11 @@ def code_interpreter(state:AgentState):
 judge_schema = """
     {{
     "rfp_id": "<문자열: 요구사항 식별용 라벨>",
-    "rfp_contents": "<문자열: 요구사항에 대한 내용>",
+    "rfp_contents": "<요구사항에 대한 내용(JSON 구조: 
+    {{
+        "content": "<요구사항 정보의 '내용'에 해당하는 문자열>",
+        "reference": "<요구사항 정보의 '구현시참고사항'에 해당하는 문자열>",
+    }}>",
     "summary": "<한 줄 평가 요약>",
     "decision": "충족 | 부분충족 | 미충족",
     "scores": {{
