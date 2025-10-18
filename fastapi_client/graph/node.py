@@ -216,7 +216,6 @@ def match_summary_to_requirement(state:AgentState):
 
     print("--- " + "- " * 10 + "4단계: 요구사항 매칭 완료" + "- " * 10 + " ---")
 
-    return {'parsed_methods': file_list, 'requirements': sorted_list}
     return {'parsed_methods': file_list}
 
 # 1. 개별 함수 분석 결과를 위한 모델
