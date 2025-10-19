@@ -218,6 +218,10 @@ def match_summary_to_requirement(state:AgentState):
 
     return {'parsed_methods': file_list}
 
+class Reference(BaseModel):
+    path: str = Field(description="import 된 클래스의 위치 (예: com.example.course.repository.CourseBookmarkRepository)")
+    usage: List[str] = Field(description="해당 클래스의 활용처 (예: ['getUserBookmarkedCourses()','Used By Type'])")
+
 # 1. 개별 함수 분석 결과를 위한 모델
 class FunctionDetail(BaseModel):
     """소프트웨어 기능 명세를 담는 구조"""
@@ -228,6 +232,7 @@ class FunctionDetail(BaseModel):
     processing: str = Field(description="함수의 주요 처리 로직/단계에 대한 설명 (예: 인증 정보에서 사용자 ID를 추출하고, 북마크 서비스를 통해 페이징된 즐겨찾기 과정 목록을 조회한 후, 응답으로 반환한다.)")
     output: str = Field(description="기능 수행 후 반환되는 결과, 반환이 없으면 빈 값 입력 (예: 즐겨찾기한 과정 페이지 (Page<CourseResponse>))")
     exceptions: str = Field(description="발생 가능한 예외 상황 및 처리 내용 (예: 사용자를 찾을 수 없을 경우 EntityNotFoundException이 발생한다.)")
+    import_class: List[Reference] = Field(description="함수에 import 하여 메서드 호출 및 자료형으로 사용된 개발자 의존성 클래스의 정보(예: method_list 내 import_class 에 있는 정보)")
 
 # 2. 전체 결과를 위한 모델
 class CodeAnalysisResult(BaseModel):
@@ -330,7 +335,8 @@ judge_schema = """
             "input": "",
             "processing": "",
             "output": "",
-            "exceptions": ""
+            "exceptions": "",
+            "import_class": ""
         }}>"]
         }}
     }}
@@ -362,12 +368,19 @@ judge_prompt = PromptTemplate.from_template("""
 - 요구사항 정보: {requirements_data}
 - 함수 리스트: {func_text}
 
+[평가 절차]
+1) 주어진 함수 리스트의 함수 정보를 요구사항 정보와 연관이 있으면 trace.matched_functions 에 추가
+2) 함수 리스트의 함수 정보 중 \"import_class\"는 List 형식으로 된 함수 내부에 import 된 외부 클래스 정보
+    > List 형식인 \"usage\" 의 각각의 내용이 메서드 호출(예: existsByUserAndCourse())이면 \"path\" 와 참고하여 **함수 리스트에서 찾아 trace.matched_functions에 반드시 포함**
+    > \"usage\" 는 List 형식으로 되어있어 반드시 모든 것들을 함수 리스트와 비교하고 **함수 리스트에 있으면** trace.matched_functions 에 추가해야함
+3) 1),2) 에서 추가한 trace.matched_functions 를 바탕으로 요구사항 정보와 비교하여 평가를 진행
+
 """).partial(schema=judge_schema)
 
 def compare_to_rfp(state:AgentState):
     func_blocks = state['functions']
     tmp_rfp_id = state['tmp_rfp_number']
-    requirements_from_db = vector_store.search(query=f"하위ID 값에 {tmp_rfp_id}가 포함된 문서를 찾아줘", search_type="similarity", k=100, filter={"source": tmp_rfp_id})
+    requirements_from_db = vector_store.search(query=f"하위ID 값에 {tmp_rfp_id}가 포함된 문서를 찾아줘", search_type="similarity", k=10, filter={"source": tmp_rfp_id})
 
     my_list = []
     for item in requirements_from_db:
@@ -427,6 +440,7 @@ def compare_to_rfp(state:AgentState):
         processing: {func_data.get('processing', '')}
         output: {func_data.get('output', '')}
         exceptions: {func_data.get('exceptions', '')}
+        import_class: {func_data.get('import_class', [])}
         -----
         
         """.strip()

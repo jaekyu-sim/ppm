@@ -2,14 +2,14 @@ import re
 from typing import List
 
 from parser.parser import MethodInfo, FileParseResult, extract_java_methods, extract_python_methods, \
-    RegroupMethodResult, extract_java_filename, extract_java_path
+    RegroupMethodResult, extract_java_filename, extract_java_path, analyze_import_java_code
 from .state import AgentState
 
 
 def parse_methods_from_file(state: AgentState) -> List[FileParseResult]:
     file_code_list = state['file_code']
     result_list: List[FileParseResult] = []
-
+    import_class_list = {}
     for file_obj in file_code_list:
         file_name = file_obj['file_name']
         code = file_obj['code']
@@ -22,22 +22,32 @@ def parse_methods_from_file(state: AgentState) -> List[FileParseResult]:
             parsed_methods = extract_python_methods(code)
         
         elif file_name.endswith('.java'):
-            parsed_methods = extract_java_methods(code)
-            
+            parsed_methods:List = extract_java_methods(code)
+            import_class_of_methods = analyze_import_java_code(code)
+            method_level_analysis:dict = import_class_of_methods['method_level_analysis']
+            if method_level_analysis.keys():
+                import_class_list = import_class_list|method_level_analysis
+            for parsed_method in parsed_methods:
+                import_class = method_level_analysis.get(parsed_method.get('method_name'), None)
+                if import_class:
+                    parsed_method['import_class'] = import_class
+                else :
+                    parsed_method['import_class'] = None
         else:
             print(f"지원하지 않는 파일 확장자입니다: {file_name}")
 
         result_list.append({
             "file_name": file_name,
-            "method_list": parsed_methods
+            "method_list": parsed_methods,
         })
 
-    return { "parsed_methods" : result_list }
+    return { "parsed_methods" : result_list, "import_class_of_methods": import_class_list }
 
 def regroup_methods(state: AgentState) -> List[RegroupMethodResult]:
     parsed_methods_list = state['parsed_methods']
     tmp_rfp_number = state['tmp_rfp_number']
     fileCode_list = state['file_code']
+    import_class_of_methods:dict = state['import_class_of_methods']
     fileCode_dic = {}
     for a in fileCode_list:
         file_name = a['file_name']
@@ -58,8 +68,20 @@ def regroup_methods(state: AgentState) -> List[RegroupMethodResult]:
 
         for method in file['method_list']:
             rfp_number = method['rfp_number']
+            isNeeded = False
             if tmp_rfp_number not in rfp_number:
-                continue
+                for import_class_of_method in import_class_of_methods.values():
+                    for usage_list in import_class_of_method.values():
+                        for usage in usage_list:
+                            if method['method_name'] in usage :
+                                isNeeded = True
+                        if isNeeded:
+                            break
+                    if isNeeded:
+                        break
+                if not isNeeded:
+                    continue
+
             if rfp_number not in rfp_dict:
                 rfp_dict[rfp_number] = {
                     "rfp_name": rfp_number,
@@ -73,36 +95,18 @@ def regroup_methods(state: AgentState) -> List[RegroupMethodResult]:
             )
             method_item: MethodInfo = {
                 "method_name": method["method_name"],
-                "method_code": method["method_code"]
+                "method_code": method["method_code"],
+                "import_class": method["import_class"]
             }
 
 
             if file_item:
                 file_item["method_list"].append(method_item)
             else:
-                caller_variable = []
-
-                # 1. import 구문 추출 (클래스명 ↔ import 경로 mapping)
-                import_pattern = re.compile(r'import\s+([a-zA-Z0-9_.]+);')
-                imports = import_pattern.findall(fileCode_dic[file_name])
-
-                # 2. mapping: SimpleClassName → FullPath
-                import_map = {imp.split('.')[-1]: imp for imp in imports}
-
-                # 3. 클래스 내 'private final [Type] [name];' 추출
-                member_pattern = re.compile(r'private\s+final\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+);')
-                fields = member_pattern.findall(fileCode_dic[file_name])
-
-                for type_name, var_name in fields:
-                    # import에서 찾으면 패키지 포함 경로 사용, 아니면 타입 그대로
-                    path = import_map.get(type_name, type_name)
-                    caller_variable.append({"path": path, "name": var_name})
-
                 rfp_dict[rfp_number]["file_list"].append({
                     "path_name": path_name,
                     "file_name": java_file,
-                    "method_list": [method_item],
-                    "caller_variable": caller_variable
+                    "method_list": [method_item]
                 })
 
     for rfp_dict_value in rfp_dict.values():
