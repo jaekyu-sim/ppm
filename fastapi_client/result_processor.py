@@ -182,7 +182,7 @@ def format_final_result_to_markdown(json_data: dict, repository: str, sha: str) 
             markdown += "> [!WARNING]\n"
             markdown += "> ⚠️ **보완 필요 사항**\n"
             for point in item['missing_points']:
-                markdown += f"> {point}\n"
+                markdown += f"> - {point}\n"
 
         # 추적된 함수 목록
         markdown += "\n### 🔍 추적된 함수 목록\n\n"
