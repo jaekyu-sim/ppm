@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from typing import List
 
 from langchain_core.output_parsers import JsonOutputParser
@@ -198,6 +199,7 @@ def match_summary_to_requirement(state:AgentState):
                         else:
                             requirement_content = top_doc.page_content
                     except (json.JSONDecodeError, TypeError):
+                        # TODO: 모든 데이터가 이 경로로 초기화됨
                         # JSON 파싱에 실패하면 원본 문자열을 그대로 사용
                         requirement_content = top_doc.page_content
 
@@ -220,7 +222,7 @@ def match_summary_to_requirement(state:AgentState):
 
 class Reference(BaseModel):
     path: str = Field(description="import 된 클래스의 위치 (예: com.example.course.repository.CourseBookmarkRepository)")
-    usage: List[str] = Field(description="해당 클래스의 활용처 (예: ['getUserBookmarkedCourses()','Used By Type'])")
+    usage: List[str] = Field(description="해당 클래스의 함수 호출 또는 자료형으로 사용여부 (함수 호출 예시: ['getUserBookmarkedCourses'], 자료형 사용 예시: ['Used By Type'])")
 
 # 1. 개별 함수 분석 결과를 위한 모델
 class FunctionDetail(BaseModel):
@@ -360,22 +362,36 @@ judge_prompt = PromptTemplate.from_template("""
 - \"부분충족\": 핵심 중 일부가 불명확/누락
 - \"미충족\": 핵심 요구를 만족하지 못함
 - 점수는 0.0~1.0 (소수 둘째 자리 권장)
-- missing_points에는 구체적 부족 항목을 불릿으로 기입
+- missing_points에는 구체적 부족 항목을 기입
 - trace.matched_functions에는 요구사항을 구성하는 함수의 정보를 나열
+- 함수 리스트의 함수 정보 중 \"import_class\"는 List 형식으로 된 함수 내부에 import 된 외부 클래스 정보이고 해당 메서드를 구현하기 위한 필수적인 정보이므로 이를 trace.matched_functions 에 포함하여 동일하게 평가
 - RFP 요구사항은 불변의 진리이므로 요구사항의 불완전성을 고려하지 않음
 
 [입력]
 - 요구사항 정보: {requirements_data}
 - 함수 리스트: {func_text}
 
-[평가 절차]
-1) 주어진 함수 리스트의 함수 정보를 요구사항 정보와 연관이 있으면 trace.matched_functions 에 추가
-2) 함수 리스트의 함수 정보 중 \"import_class\"는 List 형식으로 된 함수 내부에 import 된 외부 클래스 정보
-    > List 형식인 \"usage\" 의 각각의 내용이 메서드 호출(예: existsByUserAndCourse())이면 \"path\" 와 참고하여 **함수 리스트에서 찾아 trace.matched_functions에 반드시 포함**
-    > \"usage\" 는 List 형식으로 되어있어 반드시 모든 것들을 함수 리스트와 비교하고 **함수 리스트에 있으면** trace.matched_functions 에 추가해야함
-3) 1),2) 에서 추가한 trace.matched_functions 를 바탕으로 요구사항 정보와 비교하여 평가를 진행
-
 """).partial(schema=judge_schema)
+
+def create_function_map(functions):
+    func_map = deepcopy(functions)
+    for func in func_map:
+        import_class_list = func["import_class"]
+        new_import_class_info = []
+        for import_class in import_class_list:
+            path = import_class["path"]
+            usage:list = import_class["usage"]
+            for u in usage:
+                if u != 'Used By Type':
+                    for func2 in func_map:
+                        if path in func2["file"] and func2["name"] == u:
+                            copied_func = deepcopy(func2)
+                            del copied_func["import_class"]
+                            new_import_class_info.append(copied_func)
+        func["new_import_class_info"] = new_import_class_info
+
+    return func_map
+
 
 def compare_to_rfp(state:AgentState):
     func_blocks = state['functions']
@@ -429,7 +445,8 @@ def compare_to_rfp(state:AgentState):
 
     results = []
     func_text = ""
-    for idx, func_data in enumerate(func_blocks, 1):
+    new_func_blocks = create_function_map(func_blocks)
+    for idx, func_data in enumerate(new_func_blocks, 1):
         func_text += f"""
         
         -----
@@ -440,11 +457,11 @@ def compare_to_rfp(state:AgentState):
         processing: {func_data.get('processing', '')}
         output: {func_data.get('output', '')}
         exceptions: {func_data.get('exceptions', '')}
-        import_class: {func_data.get('import_class', [])}
+        import_class: {func_data.get('new_import_class_info', [])}
         -----
         
         """.strip()
-
+    print(func_text)
     for idx, requirements_data in enumerate(requirements_blocks, 1):
         verdict = judge_one_func(requirements_data, func_text, llm)
         results.append(verdict)

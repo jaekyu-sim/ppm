@@ -270,7 +270,7 @@ def analyze_import_java_code(java_code: str) -> dict:
                 # Check if the qualifier is a custom class or a field of a custom class
                 if qualifier in custom_classes:
                     full_path = custom_classes[qualifier]
-                    method_calls[full_path].add(f".{node.member}()")
+                    method_calls[full_path].add(f"{node.member}")
                 # Heuristic: Check if the qualifier is a field name that maps to a custom class
                 elif qualifier in [d.name for fd in class_body if isinstance(fd, javalang.tree.FieldDeclaration) for d in fd.declarators if isinstance(fd.type.name, str) and fd.type.name in custom_classes]:
                      field_declarations = [fd for fd in class_body if isinstance(fd, javalang.tree.FieldDeclaration)]
@@ -278,7 +278,7 @@ def analyze_import_java_code(java_code: str) -> dict:
                          for declarator in fd.declarators:
                               if declarator.name == qualifier and fd.type.name in custom_classes:
                                   full_path = custom_classes[fd.type.name]
-                                  method_calls[full_path].add(f".{node.member}()")
+                                  method_calls[full_path].add(f"{node.member}")
 
 
             # B. Constructor Invocation
