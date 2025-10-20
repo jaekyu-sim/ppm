@@ -1,31 +1,16 @@
-import json
 import asyncio
-from datetime import datetime
-from typing import Any, Dict
-from urllib.parse import parse_qs
-from fastapi import FastAPI, HTTPException, Request, Response
-from langchain_ollama import ChatOllama
-import uvicorn
-from contextlib import asynccontextmanager
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 import re
-from langchain_core.runnables import RunnableLambda
-from statistics import mean
-from langchain_core.prompts import PromptTemplate
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Dict
 
-from smee_client import SmeeClientManager
+import uvicorn
+from fastapi import FastAPI, Request, Response
 
-#from rag_boot import load_or_build_vector_store
-from rag_boot_phase2 import load_or_build_vector_store
-#from rag_feature import extract_features, build_query_from_features
-#from rag_utils import search_requirements, judge_one
-#from req_check_graph import create_req_check_graph
-
-from graph.node import code_interpreter, compare_to_rfp
-from graph.build import create_code_compare_to_rfp_graph
-from graph.state import AgentState
-from result_processor import process_code_comparison_result
 from github_service import get_pr_changed_files_content, get_commit_changed_files_content
+from graph.build import create_code_compare_to_rfp_graph
+from result_processor import process_code_comparison_result
+from smee_client import SmeeClientManager
 
 smee_client_manager: SmeeClientManager = None
 
@@ -63,11 +48,7 @@ async def root():
 
 def handle_webhook_sync(data: Dict, event_type: str):
     try:
-        repo_full_name = None
         pr_number = None
-        commit_sha = None
-        rfp_number = None
-        commitResult = None
 
         # 이벤트 타입에 따른 소스코드 변경점 조회
         if event_type == 'push':

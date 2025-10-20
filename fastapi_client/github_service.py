@@ -1,9 +1,10 @@
-import os
 import base64
-from typing import List, TypedDict, Optional, Dict
-from github import Github, InputFileContent
-from dotenv import load_dotenv
 import logging
+import os
+from typing import List, TypedDict, Dict
+
+from dotenv import load_dotenv
+from github import Github, InputFileContent
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()

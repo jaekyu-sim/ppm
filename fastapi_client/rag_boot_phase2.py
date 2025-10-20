@@ -1,29 +1,14 @@
 # 가상환경 실행 : .\.venv\Scripts\activate.ps1
 
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-#from langchain.embeddings import OllamaEmbeddings #=> deprecated
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_chroma import Chroma
-#from langchain_community.llms import Ollama
-#from langchain_community.chat_models import ChatOllama
-from langchain_ollama import ChatOllama
-#from langchain_core.tools import tool
-#from langchain.agents import initialize_agent, AgentType
-#from langchain_ollama import OllamaEmbeddings
-
-from langchain.prompts import PromptTemplate
-import os
-#from langgraph.prebuilt import ToolNode
-#from typing import Literal
-#from langgraph.graph import END
-#from langgraph.graph import START, END
-#from langgraph.graph import MessagesState, StateGraph
-#from langchain_core.prompts import PromptTemplate
-import re
 import json
-from langchain.schema import Document
+import os
+import re
 from pathlib import Path
+
+from langchain.schema import Document
+from langchain_chroma import Chroma
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_ollama import ChatOllama
 
 # model cell
 
@@ -76,7 +61,7 @@ def load_or_build_vector_store():
         print("Vector DB 부재. 생성 시작.")
         # 1. 문서 로드
         base_dir = Path(__file__).resolve().parent  
-        file_path = base_dir / "vector_db_data.json"
+        file_path = base_dir / "docs" / "vector_db_data.json"
 
         with open(file_path, "r", encoding="utf-8") as f:
             vector_db_data = json.load(f)
