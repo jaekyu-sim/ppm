@@ -1,7 +1,5 @@
 # PPM Agent
 
-------
-
 AX Young Talent Project
 
 AI 기반 개발 진척도 자동 추적 시스템
