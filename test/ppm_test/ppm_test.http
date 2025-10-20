@@ -1,100 +1,8 @@
 ### FastAPI 서버 기본 테스트
 GET http://localhost:8000/
 
-### MCP Server Tool list
-GET http://localhost:8000/tools
-
 ### Github Webhook
 ### https://smee.io/JsEoOmxPUGyv3cl 에 들어가서 Redeliver this payload
-
-### Webhook 수신 테스트
-POST http://localhost:8000/webhook
-Content-Type: application/json
-X-GitHub-Event: push
-
-{
-  "repository": {
-    "full_name": "sjKang01401/webhook-test"
-  },
-  "head_commit": {
-    "id": "66ba01b050bbc93d4d98b972ccdd7c1eaa282606"
-  },
-  "ref": "refs/heads/SFR-099-test_case"
-}
-
-### SFR-099 테스트
-POST http://localhost:8000/webhook
-Content-Type: application/json
-X-GitHub-Event: push
-
-{
-  "repository": {
-    "full_name": "HorangApple/sports-portal"
-  },
-  "head_commit": {
-    "id": "beff35bf72321a4e8cd9aaf4e4b068425ed4e798"
-  },
-  "ref": "refs/heads/SFR-099-test_case"
-}
-
-### 파일 변경점 3개 케이스 (PR #1)
-POST http://localhost:8000/webhook
-Content-Type: application/json
-X-GitHub-Event: pull_request
-
-{
-  "pr_comment_send" : false,
-  "number": 1,
-  "pull_request": {
-    "head": {
-      "sha": "326ede6a93a096a6f4ded59f65639677e297d005",
-      "ref": "PR-TEST"
-    }
-  },
-  "repository": {
-    "full_name": "HorangApple/sports-portal"
-  }
-}
-
-### SFR-113 기능 개발 (PR #3)
-POST http://localhost:8000/webhook
-Content-Type: application/json
-X-GitHub-Event: pull_request
-
-{
-  "pr_comment_send" : false,
-  "number": 3,
-  "pull_request": {
-    "head": {
-      "sha": "ff4615e05d07492b979dda1e999bd053ad319f12",
-      "ref": "SFR-113-test_case"
-    }
-  },
-  "repository": {
-    "full_name": "HorangApple/sports-portal"
-  }
-}
-
-### Test case3 (PR #5)
-POST http://localhost:8000/webhook
-Content-Type: application/json
-X-GitHub-Event: pull_request
-
-{
-  "pr_comment_send" : false,
-  "number": 5,
-  "pull_request": {
-    "head": {
-      "sha": "ff4615e05d07492b979dda1e999bd053ad319f12",
-      "ref": "SFR-099-test_case"
-    }
-  },
-  "repository": {
-    "full_name": "HorangApple/sports-portal"
-  }
-}
-
-
 
 ### TEST (PR #5) : [SFR-113] 파일 9개 변경점
 POST http://localhost:8000/webhook
@@ -116,7 +24,6 @@ X-GitHub-Event: pull_request
   }
 }
 
-
 ### TEST (PR #10) : [SFR-099] TestController.java 파일 1개 변경점
 POST http://localhost:8000/webhook
 Content-Type: application/json
@@ -130,27 +37,6 @@ X-GitHub-Event: pull_request
     "head": {
       "sha": "907ffad0242ed8e11e46b4e7cf353f259932c498",
       "ref": "SFR-099"
-    }
-  },
-  "repository": {
-    "full_name": "HorangApple/sports-portal"
-  }
-}
-
-
-### 파일 변경점 52개 케이스 (PR #2)
-### LLM 개선 전까지는 테스트 금지
-POST http://localhost:8000/webhook
-Content-Type: application/json
-X-GitHub-Event: pull_request
-
-{
-  "pr_comment_send" : false,
-  "number": 2,
-  "pull_request": {
-    "head": {
-      "sha": "326ede6a93a096a6f4ded59f65639677e297d005",
-      "ref": "PR-TEST"
     }
   },
   "repository": {

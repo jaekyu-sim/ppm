@@ -61,7 +61,7 @@ def load_or_build_vector_store():
         print("Vector DB 부재. 생성 시작.")
         # 1. 문서 로드
         base_dir = Path(__file__).resolve().parent  
-        file_path = base_dir / "docs" / "vector_db_data.json"
+        file_path = base_dir / "docs" / "vector_db_rfp_data.json"
 
         with open(file_path, "r", encoding="utf-8") as f:
             vector_db_data = json.load(f)
