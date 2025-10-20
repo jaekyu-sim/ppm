@@ -88,6 +88,7 @@ python fastapi_client/fastapi_server.py
 ```
 ### 2-4. 테스트
 <img alt="테스트 양식" src="https://github.com/user-attachments/assets/e5556a49-4e2e-44a7-a0ab-064107a473e1" />
+
 - `test/ppm_test/ppm_test.http` 에서 테스트 진행
 
 ## 3. 시스템 동작 방식
