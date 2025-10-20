@@ -1,89 +1,97 @@
-# PPM
-AX Young Talent Final Project 'AI 기반 개발 진척도 자동 추적 시스템'
+# PPM Agent
 
+------
+
+AX Young Talent Project
+
+AI 기반 개발 진척도 자동 추적 시스템
+
+<img alt="개발 진척도 결과" src="https://github.com/user-attachments/assets/ef9e4a32-c0fc-4da8-a4a1-e685ba5d1d77" />
 
 ## 1. 핵심 아이디어 개요
-개발자의 GitHub 커밋을 AI가 자동 분석하여 요구사항 대비 개발 진척도를 실시간으로 측정하고 PM에게 리포팅하는 시스템
+개발자의 GitHub Pull Request를 AI가 자동 분석하여 요구사항 대비 개발 진척도를 실시간으로 측정하고 PM에게 리포팅하는 시스템
 
+## 2. 개발 환경 설정
+### 2-1. github webhook 설정
+1) PPM Agent의 smee.io로 Webhook 연결
+2) 연결하고자 하는 Repository의 `Settings > Webhooks`에서 `Add webhook` 로 다음 정보로 추가
 
-## 2. 시스템 동작 방식
-
-### 2-1. 개발자 워크 플로우
-```text
-개발자가 코드 작성 완료
-     ↓
-커밋 메시지에 요구사항 번호 포함
-예: "[REQ-001] 로그인 API 구현"
-     ↓
-GitHub에 Push
-```
-
-### 2-2. AI 시스템 자동 처리
-```text
-GitHub Webhook이 Push 이벤트 감지
-     ↓
-커밋 메시지에서 요구사항 번호 추출 (REQ-001)
-     ↓
-해당 요구사항 상세 스펙 조회
-     ↓
-Push된 코드 변경사항 분석
-     ↓
-AI가 요구사항 대비 구현 완성도 판단
-     ↓
-진척도 퍼센트 계산 (예: 75% 완료)
-```
-
-### 2-3. 자동 리포팅
-```text
-GitHub PR/커밋에 Bot 코멘트 자동 생성
-     ↓
-PM 대시보드에 실시간 업데이트
-     ↓
-Slack/Teams 알림 발송 (옵션)
+``` 
+Payload URL: https://smee.io/JsEoOmxPUGyv3cl
+Content type: application/json
+SSL verification: Disable
+Which events would you like to trigger this webhook?: Send me everything.
 ```
 
 
-## 3. 구체적인 예시 시나리오
-🤖 **AI Progress Tracker** - REQ-001 분석 완료
+### 2-2. ollama 설치 및 설정
+1) 성능 향상을 위한 환경변수 설정
+```text
+OLLAMA_CONTEXT_LENGTH=8192
+OLLAMA_FLASH_ATTENTION=1
+OLLAMA_KV_CACHE_TYPE=q8_0
+```
 
-**📋 요구사항**: 사용자 로그인 기능
+2) [ollama](https://ollama.com/download) 설치 후 CLI로 모델 download 및 기동
+- 우측 하단 상태표시줄에 ollama GUI 종료 후 터미널의 CLI로 실행
+```bash
+ollama pull qwen3:4b-instruct-2507-q8_0
+ollama serve
+```
 
-**📊 현재 진척도**: 75% → 85% (+10%)
+### 2-3. 프로젝트 설정 및 실행
+1) `fastapi_client/docs/vector_db_rfp_data.json` 에 요구사항 정의
 
-**✅ 이번 커밋에서 완료된 작업**
-- JWT 토큰 만료 처리 로직 추가
-- 로그인 실패시 에러 메시지 개선
+2) `fastapi_client/.env` 파일에 Pull Request에 결과를 등록해줄 PPM-Bot(임의의 github 계정)의 [토큰](https://github.com/settings/tokens) 입력
 
-**⏳ 남은 작업 (예상 15%)**
-- [ ] 소셜 로그인 연동 (구글, 네이버)
-- [ ] "로그인 상태 유지" 체크박스 기능
+**fastapi_client/.env**
+```bash
+# Smee.io webhook URL
+SMEE_URL=https://smee.io/JsEoOmxPUGyv3cl
 
-**🔍 분석 상세**
-- 변경된 파일: 3개 (authService.js, LoginForm.jsx, constants.js)
-- 추가된 코드: +45 lines
-- 테스트 코드: ✅ 포함됨
+# MCP Server URL
+MCP_SERVER_URL=http://localhost:8001
 
-**⏱️ 예상 완료시간**: 2일 (현재 속도 기준)
+# PPM-Bot GitHub Token
+GITHUB_TOKEN="" # 계정에 생성한 토큰 값 입력
+```
 
+3) 프로젝트 의존성 패키지 설치 및 실행
 
-## 4. 시스템 구성 요소
-1. GitHub Integration
-2. AI 분석 엔진
-3. 데이터 저장소
-4. 사용자 인터페이스
+**uv 를 이용한 설치**
+```bash
+# uv 미설치 시 설치
+pip install uv
 
+# uv 를 통한 의존성 패키지 설치
+uv sync
 
-## 5. 핵심 가치 제안
-1. PM 관점
-- 실시간 가시성 : 프로젝트 현황을 실시간으로 파악
-- 업무 효율성 : 코드 리뷰 시간 절약
-- 정확한 일정 관리 : 데이터 기반 완료 예측
+# 실행
+uv run python fastapi_client/fastapi_server.py
+```
 
-2. 개발자 관점
-- 업무 집중 : 별도 진척도 보고 업무 제거
-- 성과 가시화 : 작업 결과가 즉시 수치로 표현
+**기존 방식을 이용한 설치**
+```bash
+# Python 가상 환경 설정 (프로젝트 루트에서 실행)
+python -m venv .venv
 
-3. 조직 관점
-- 투명한 소통 : 개발자, 관리자 간 정보 비대칭 해소
-- 품질 향상 : 체계적인 진행상황 관리
-- 리스크 관리 : 지연 요소 조기 발견 및 대응
+# 가상환경 진입
+## macOS/Linux 
+source .venv/bin/activate  
+
+## Windows
+source .venv/Scripts/activate  
+
+# 의존성 패키지 설치
+pip install -r requirements.txt
+
+# 실행
+python fastapi_client/fastapi_server.py
+```
+### 2-4. 테스트
+<img alt="테스트 양식" src="https://github.com/user-attachments/assets/e5556a49-4e2e-44a7-a0ab-064107a473e1" />
+- `test/ppm_test/ppm_test.http` 에서 테스트 진행
+
+## 3. 시스템 동작 방식
+<img alt="시스템 동작 방식" src="https://github.com/user-attachments/assets/ebe36045-c1a2-4f59-8cb1-0ad269c783a9">
+
