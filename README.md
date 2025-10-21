@@ -4,8 +4,6 @@ AX Young Talent Project
 
 AI 기반 개발 진척도 자동 추적 시스템
 
-<img alt="개발 진척도 결과" src="https://github.com/user-attachments/assets/ef9e4a32-c0fc-4da8-a4a1-e685ba5d1d77" />
-
 ## 1. 핵심 아이디어 개요
 개발자의 GitHub Pull Request를 AI가 자동 분석하여 요구사항 대비 개발 진척도를 실시간으로 측정하고 PM에게 리포팅하는 시스템
 
@@ -91,6 +89,11 @@ python fastapi_client/fastapi_server.py
 
 - `test/ppm_test/ppm_test.http` 에서 테스트 진행
 
-## 3. 시스템 동작 방식
+### 2-5. 결과
+- github 의 해당 Pull Request 의 comment 에 다음과 같이 개발 진척도 결과가 등록됨
+
+<img alt="개발 진척도 결과" src="https://github.com/user-attachments/assets/1c705f2f-a5d0-45f8-bf0f-b04382aa0719" />
+
+## 4. 시스템 동작 방식
 <img alt="시스템 동작 방식" src="https://github.com/user-attachments/assets/ebe36045-c1a2-4f59-8cb1-0ad269c783a9">
 
