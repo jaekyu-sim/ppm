@@ -32,6 +32,7 @@ OLLAMA_KV_CACHE_TYPE=q8_0
 - 우측 하단 상태표시줄에 ollama GUI 종료 후 터미널의 CLI로 실행
 ```bash
 ollama pull qwen3:4b-instruct-2507-q8_0
+ollama pull bge-m3
 ollama serve
 ```
 
